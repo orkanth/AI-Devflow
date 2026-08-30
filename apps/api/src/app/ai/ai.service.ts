@@ -35,7 +35,7 @@ export class AiService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: dto.message,
-          project_id: dto.projectId,
+          project_id: dto.projectId ?? this.store.projects[0]?.id,
         }),
         signal: AbortSignal.timeout(8000),
       });

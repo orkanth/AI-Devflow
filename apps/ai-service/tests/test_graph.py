@@ -7,6 +7,9 @@ from app.vectorstore import default_store
 
 
 class SilentNest(NestJsTools):
+    def list_projects(self) -> list[dict]:
+        return [{"id": "p1", "name": "DevFlow Platform"}]
+
     def create_task(self, project_id: str, title: str, description: str) -> dict:
         return {"id": "local", "projectId": project_id, "title": title, "description": description}
 

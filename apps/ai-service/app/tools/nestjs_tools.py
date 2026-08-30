@@ -14,6 +14,15 @@ class NestJsTools:
     def __init__(self, base_url: str = NESTJS_URL) -> None:
         self.base_url = base_url.rstrip("/")
 
+    def list_projects(self) -> list[dict[str, Any]]:
+        try:
+            response = httpx.get(f"{self.base_url}/api/projects", timeout=4.0)
+            response.raise_for_status()
+            data = response.json()
+            return data if isinstance(data, list) else []
+        except httpx.HTTPError:
+            return []
+
     def create_task(self, project_id: str, title: str, description: str) -> dict[str, Any]:
         payload = {
             "projectId": project_id,
