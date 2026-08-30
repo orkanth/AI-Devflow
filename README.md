@@ -36,6 +36,16 @@ Nx monorepo prototype of an **agentic engineering project-management platform**.
           NestJS          pgvector        PostgreSQL / NestJS
 ```
 
+## Stack
+
+| Layer | Technology |
+| --- | --- |
+| Frontend | Angular 22 + Angular Material (same chrome as [orkanth/devflow](https://github.com/orkanth/devflow)) |
+| Backend | NestJS 11 |
+| AI | FastAPI + LangGraph-style supervisor |
+| Data | PostgreSQL + pgvector (in-memory adapter by default) |
+| Monorepo | Nx 23 |
+
 ## Apps
 
 | App | Path | Port | Responsibility |

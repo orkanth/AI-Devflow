@@ -1,27 +1,62 @@
 import { Component } from '@angular/core';
+import { MatCardModule } from '@angular/material/card';
 
 @Component({
   selector: 'df-learn',
+  imports: [MatCardModule],
   template: `
-    <header class="page-head">
+    <header class="page-header">
       <div>
-        <h1>Interview notes</h1>
-        <p>Talk through this architecture out loud. Full write-up is in docs/INTERVIEW_GUIDE.md.</p>
+        <h1 class="page-title">Interview notes</h1>
+        <p class="page-subtitle">
+          Talk through this architecture out loud. Full write-up is in docs/INTERVIEW_GUIDE.md.
+        </p>
       </div>
     </header>
 
-    <div class="diagram">
-      <pre>{{ diagram }}</pre>
-    </div>
+    <mat-card class="diagram">
+      <mat-card-content>
+        <pre>{{ diagram }}</pre>
+      </mat-card-content>
+    </mat-card>
 
-    <section class="grid">
+    <section class="card-grid">
       @for (card of cards; track card.title) {
-        <article class="panel">
-          <h2>{{ card.title }}</h2>
-          <p>{{ card.body }}</p>
-        </article>
+        <mat-card>
+          <mat-card-header>
+            <mat-card-title>{{ card.title }}</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <p>{{ card.body }}</p>
+          </mat-card-content>
+        </mat-card>
       }
     </section>
+  `,
+  styles: `
+    .diagram {
+      background: #0f172a;
+      color: #e2e8f0;
+      margin-bottom: 16px;
+      box-shadow: none;
+    }
+
+    .diagram pre {
+      margin: 0;
+      white-space: pre-wrap;
+      font-size: 0.85rem;
+    }
+
+    mat-card {
+      border: 1px solid #e2e8f0;
+      box-shadow: none;
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
   `,
 })
 export class LearnPage {

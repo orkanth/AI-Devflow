@@ -1,0 +1,35 @@
+.shell-header {
+  background: var(--df-header-bg);
+  color: #0f172a;
+  border-bottom: 1px solid var(--df-header-border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.shell-header__title {
+  font-size: 1rem;
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+.shell-header__spacer {
+  flex: 1;
+}
+
+.shell-header__badge {
+  color: var(--df-brand);
+  margin-right: 6px;
+}
+
+.shell-header__hint {
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin-right: 8px;
+}
+
+@media (max-width: 720px) {
+  .shell-header__hint {
+    display: none;
+  }
+}

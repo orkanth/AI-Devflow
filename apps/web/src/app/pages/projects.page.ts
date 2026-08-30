@@ -1,39 +1,96 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { ApiService, Project, User } from '../services/api.service';
 
 @Component({
   selector: 'df-projects',
-  imports: [FormsModule],
+  imports: [
+    FormsModule,
+    MatButtonModule,
+    MatCardModule,
+    MatChipsModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+  ],
   template: `
-    <header class="page-head">
+    <header class="page-header">
       <div>
-        <h1>Projects</h1>
-        <p>Owned by NestJS. Angular never writes to the database itself.</p>
+        <h1 class="page-title">Projects</h1>
+        <p class="page-subtitle">Owned by NestJS. Angular never writes to the database itself.</p>
       </div>
     </header>
 
-    <form class="form-row" (ngSubmit)="create()">
-      <input [(ngModel)]="name" name="name" placeholder="Project name" required />
-      <input [(ngModel)]="description" name="description" placeholder="Description" required />
-      <select [(ngModel)]="ownerId" name="ownerId" required>
-        <option value="">Owner</option>
-        @for (user of users(); track user.id) {
-          <option [value]="user.id">{{ user.name }}</option>
-        }
-      </select>
-      <button type="submit">Create</button>
-    </form>
+    <mat-card class="form-card">
+      <mat-card-content>
+        <form class="page-toolbar" (ngSubmit)="create()">
+          <mat-form-field appearance="outline">
+            <mat-label>Project name</mat-label>
+            <input matInput [(ngModel)]="name" name="name" required />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Description</mat-label>
+            <input matInput [(ngModel)]="description" name="description" required />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Owner</mat-label>
+            <mat-select [(ngModel)]="ownerId" name="ownerId" required>
+              @for (user of users(); track user.id) {
+                <mat-option [value]="user.id">{{ user.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <button mat-flat-button color="primary" type="submit">Create</button>
+        </form>
+      </mat-card-content>
+    </mat-card>
 
-    <div class="grid">
+    <div class="card-grid">
       @for (project of projects(); track project.id) {
-        <article class="panel">
-          <h2>{{ project.name }}</h2>
-          <p>{{ project.description }}</p>
-          <small>{{ project.status }}</small>
-        </article>
+        <mat-card>
+          <mat-card-header>
+            <mat-card-title>{{ project.name }}</mat-card-title>
+            <mat-card-subtitle>{{ project.status }}</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <p>{{ project.description }}</p>
+          </mat-card-content>
+        </mat-card>
       }
     </div>
+  `,
+  styles: `
+    .form-card,
+    mat-card {
+      border: 1px solid #e2e8f0;
+      box-shadow: none;
+    }
+
+    .form-card {
+      margin-bottom: 24px;
+    }
+
+    .page-toolbar mat-form-field {
+      flex: 1;
+      min-width: 180px;
+    }
+
+    .page-toolbar button {
+      height: 56px;
+      margin-top: 4px;
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
   `,
 })
 export class ProjectsPage {

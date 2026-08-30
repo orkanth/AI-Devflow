@@ -1,0 +1,21 @@
+<mat-sidenav-container class="shell-container" autosize>
+  <mat-sidenav
+    #sidenav
+    class="shell-sidenav"
+    [class.shell-sidenav--collapsed]="sidebarCollapsed() && !isMobile()"
+    [style.width.px]="sidenavWidth()"
+    [mode]="sidenavMode()"
+    [opened]="sidenavOpened()"
+    (closed)="onSidenavClosed()"
+    (opened)="onSidenavOpened()"
+  >
+    <df-shell-sidebar [collapsed]="sidebarCollapsed() && !isMobile()" />
+  </mat-sidenav>
+
+  <mat-sidenav-content class="shell-content">
+    <df-shell-header (menuToggle)="toggleSidenav()" />
+    <main class="shell-main">
+      <router-outlet />
+    </main>
+  </mat-sidenav-content>
+</mat-sidenav-container>

@@ -1,45 +1,113 @@
+import { JsonPipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { JsonPipe } from '@angular/common';
+import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSelectModule } from '@angular/material/select';
 import { ApiService, ChatResult, Project } from '../services/api.service';
 
 @Component({
   selector: 'df-chat',
-  imports: [FormsModule, JsonPipe],
+  imports: [
+    FormsModule,
+    JsonPipe,
+    MatButtonModule,
+    MatCardModule,
+    MatChipsModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatProgressBarModule,
+    MatSelectModule,
+  ],
   template: `
-    <header class="page-head">
+    <header class="page-header">
       <div>
-        <h1>AI console</h1>
-        <p>NestJS proxies to FastAPI. If Python is down, NestJS runs the same supervisor locally.</p>
+        <h1 class="page-title">AI console</h1>
+        <p class="page-subtitle">
+          NestJS proxies to FastAPI. If Python is down, NestJS runs the same supervisor locally.
+        </p>
       </div>
     </header>
 
-    <div class="prompts">
+    <mat-chip-set class="prompts">
       @for (prompt of prompts; track prompt) {
-        <button type="button" class="ghost" (click)="message = prompt">{{ prompt }}</button>
+        <mat-chip (click)="message = prompt">{{ prompt }}</mat-chip>
       }
-    </div>
+    </mat-chip-set>
 
-    <form class="stack" (ngSubmit)="send()">
-      <select [(ngModel)]="projectId" name="projectId">
-        <option value="">All projects</option>
-        @for (project of projects(); track project.id) {
-          <option [value]="project.id">{{ project.name }}</option>
-        }
-      </select>
-      <textarea [(ngModel)]="message" name="message" rows="3"></textarea>
-      <button type="submit" [disabled]="busy()">Run supervisor</button>
-    </form>
+    <mat-card class="form-card">
+      <mat-card-content>
+        <form class="stack" (ngSubmit)="send()">
+          <mat-form-field appearance="outline">
+            <mat-label>Project</mat-label>
+            <mat-select [(ngModel)]="projectId" name="projectId">
+              <mat-option value="">All projects</mat-option>
+              @for (project of projects(); track project.id) {
+                <mat-option [value]="project.id">{{ project.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Message</mat-label>
+            <textarea matInput rows="3" [(ngModel)]="message" name="message"></textarea>
+          </mat-form-field>
+          <button mat-flat-button color="primary" type="submit" [disabled]="busy()">
+            Run supervisor
+          </button>
+        </form>
+      </mat-card-content>
+    </mat-card>
+
+    @if (busy()) {
+      <mat-progress-bar mode="indeterminate" />
+    }
 
     @if (result(); as chat) {
-      <article class="panel">
-        <p class="meta">route={{ chat.route }} · source={{ chat.source }}</p>
-        <p>{{ chat.answer }}</p>
-      </article>
-      <article class="panel">
-        <h2>Agent trace</h2>
-        <pre>{{ chat.trace | json }}</pre>
-      </article>
+      <mat-card class="form-card">
+        <mat-card-header>
+          <mat-card-title>Answer</mat-card-title>
+          <mat-card-subtitle>route={{ chat.route }} · source={{ chat.source }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <p>{{ chat.answer }}</p>
+        </mat-card-content>
+      </mat-card>
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Agent trace</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <pre>{{ chat.trace | json }}</pre>
+        </mat-card-content>
+      </mat-card>
+    }
+  `,
+  styles: `
+    .prompts {
+      margin-bottom: 16px;
+    }
+
+    .form-card,
+    mat-card {
+      border: 1px solid #e2e8f0;
+      box-shadow: none;
+      margin-bottom: 16px;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      font-size: 0.8125rem;
+      margin: 0;
     }
   `,
 })

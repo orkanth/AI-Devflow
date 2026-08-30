@@ -1,0 +1,15 @@
+<mat-toolbar class="shell-header">
+  <button
+    mat-icon-button
+    type="button"
+    aria-label="Toggle navigation"
+    (click)="menuToggle.emit()"
+  >
+    <mat-icon>menu</mat-icon>
+  </button>
+
+  <span class="shell-header__title">DevFlow AI</span>
+  <span class="shell-header__spacer"></span>
+  <mat-icon class="shell-header__badge">smart_toy</mat-icon>
+  <span class="shell-header__hint">Angular · NestJS · FastAPI</span>
+</mat-toolbar>
