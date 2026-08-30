@@ -10,6 +10,36 @@
 
   <span class="shell-header__title">DevFlow AI</span>
   <span class="shell-header__spacer"></span>
-  <mat-icon class="shell-header__badge">smart_toy</mat-icon>
-  <span class="shell-header__hint">Angular · NestJS · FastAPI</span>
+
+  <button mat-button type="button" class="shell-header__user-btn" [matMenuTriggerFor]="userMenu">
+    <mat-icon>account_circle</mat-icon>
+    <span class="shell-header__user-name">{{ currentUser()?.name ?? 'User' }}</span>
+  </button>
+
+  <mat-menu #userMenu="matMenu">
+    @if (currentUser(); as user) {
+      <div class="shell-header__menu-header">
+        <strong>{{ user.name }}</strong>
+        <span>{{ user.email }}</span>
+      </div>
+      <mat-divider />
+    }
+    <a mat-menu-item routerLink="/profile">
+      <mat-icon>person</mat-icon>
+      <span>Profile</span>
+    </a>
+    <mat-divider />
+    <div class="shell-header__menu-label">Switch user (demo)</div>
+    @for (user of users(); track user.id) {
+      <button
+        mat-menu-item
+        type="button"
+        (click)="switchUser(user.id)"
+        [disabled]="currentUser()?.id === user.id"
+      >
+        <mat-icon>swap_horiz</mat-icon>
+        <span>{{ user.name }}</span>
+      </button>
+    }
+  </mat-menu>
 </mat-toolbar>

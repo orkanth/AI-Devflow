@@ -10,8 +10,20 @@ class SilentNest(NestJsTools):
     def list_projects(self) -> list[dict]:
         return [{"id": "p1", "name": "DevFlow Platform"}]
 
-    def create_task(self, project_id: str, title: str, description: str) -> dict:
-        return {"id": "local", "projectId": project_id, "title": title, "description": description}
+    def list_users(self) -> list[dict]:
+        return [{"id": "u1", "name": "Ada Lovelace"}]
+
+    def list_tasks(self) -> list[dict]:
+        return [{"id": "t1", "title": "Wire FastAPI LangGraph supervisor"}]
+
+    def create_task(self, project_id: str, title: str, description: str, assignee_id: str | None = None) -> dict:
+        return {"id": "local", "projectId": project_id, "title": title, "assigneeId": assignee_id}
+
+    def update_task(self, task_id: str, **fields) -> dict:
+        return {"id": task_id, **fields}
+
+    def delete_task(self, task_id: str) -> dict:
+        return {"id": task_id, "deleted": True}
 
     def analytics(self) -> dict:
         return {"users": 2, "projects": 2, "tasks": 4}
@@ -27,6 +39,8 @@ def test_embeddings_are_deterministic_and_ranked():
 
 def test_supervisor_routes_intents():
     assert route_message("create task: Write ADR") == "task"
+    assert route_message("assign task to Ada Lovelace") == "task"
+    assert route_message("delete project RAG Lab") == "task"
     assert route_message("how many tasks are open?") == "analytics"
     assert route_message("explain pgvector cosine search") == "rag"
 
@@ -44,6 +58,15 @@ def test_task_agent_tool_call():
     result = graph.invoke(ChatRequest(message="create task: Document MCP registry", project_id="p1"))
     assert result.route == "task"
     assert result.trace[0].tool_calls[0].tool == "create_task"
+
+
+def test_task_agent_assigns():
+    graph = SupervisorGraph(default_store(), tools=SilentNest())
+    result = graph.invoke(
+        ChatRequest(message='assign task "Wire FastAPI LangGraph supervisor" to Ada Lovelace')
+    )
+    assert result.route == "task"
+    assert result.trace[0].tool_calls[0].tool == "update_task"
 
 
 def test_evaluation_scores_overlap():

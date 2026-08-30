@@ -70,12 +70,32 @@ export class ApiService {
     return this.http.get<User[]>(`${this.base}/users`);
   }
 
+  createUser(body: { name: string; email: string; role: string }) {
+    return this.http.post<User>(`${this.base}/users`, body);
+  }
+
+  updateUser(id: string, body: Partial<User>) {
+    return this.http.patch<User>(`${this.base}/users/${id}`, body);
+  }
+
+  deleteUser(id: string) {
+    return this.http.delete(`${this.base}/users/${id}`);
+  }
+
   projects() {
     return this.http.get<Project[]>(`${this.base}/projects`);
   }
 
   createProject(body: { name: string; description: string; ownerId: string }) {
     return this.http.post<Project>(`${this.base}/projects`, body);
+  }
+
+  updateProject(id: string, body: Partial<Project>) {
+    return this.http.patch<Project>(`${this.base}/projects/${id}`, body);
+  }
+
+  deleteProject(id: string) {
+    return this.http.delete(`${this.base}/projects/${id}`);
   }
 
   tasks(projectId?: string) {
@@ -87,9 +107,19 @@ export class ApiService {
     projectId: string;
     title: string;
     description: string;
+    status?: string;
     priority?: string;
+    assigneeId?: string;
   }) {
     return this.http.post<Task>(`${this.base}/tasks`, body);
+  }
+
+  updateTask(id: string, body: Partial<Task>) {
+    return this.http.patch<Task>(`${this.base}/tasks/${id}`, body);
+  }
+
+  deleteTask(id: string) {
+    return this.http.delete(`${this.base}/tasks/${id}`);
   }
 
   knowledge() {

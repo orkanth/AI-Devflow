@@ -1,147 +1,137 @@
 import { Component, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
+import { MatDialog } from '@angular/material/dialog';
+import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
-import { ApiService, Project, Task } from '../services/api.service';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { ConfirmDialogComponent } from '../dialogs/confirm-dialog.component';
+import { TaskFormDialogComponent } from '../dialogs/task-form-dialog.component';
+import { ApiService, Project, Task, User } from '../services/api.service';
 
 @Component({
   selector: 'df-tasks',
-  imports: [
-    FormsModule,
-    MatButtonModule,
-    MatCardModule,
-    MatChipsModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
-    MatTableModule,
-  ],
+  imports: [MatButtonModule, MatChipsModule, MatIconModule, MatTableModule, MatTooltipModule],
   template: `
     <header class="page-header">
       <div>
         <h1 class="page-title">Tasks</h1>
-        <p class="page-subtitle">The task agent’s tools POST here. This is the system of record.</p>
+        <p class="page-subtitle">Assign, edit, and delete here or ask the agent (e.g. assign … to Ada Lovelace).</p>
       </div>
+      <button mat-flat-button color="primary" type="button" (click)="openCreate()">
+        <mat-icon>add_task</mat-icon>
+        New task
+      </button>
     </header>
 
-    <mat-card class="form-card">
-      <mat-card-content>
-        <form class="page-toolbar" (ngSubmit)="create()">
-          <mat-form-field appearance="outline">
-            <mat-label>Project</mat-label>
-            <mat-select [(ngModel)]="projectId" name="projectId" required>
-              @for (project of projects(); track project.id) {
-                <mat-option [value]="project.id">{{ project.name }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Task title</mat-label>
-            <input matInput [(ngModel)]="title" name="title" required />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Description</mat-label>
-            <input matInput [(ngModel)]="description" name="description" required />
-          </mat-form-field>
-          <button mat-flat-button color="primary" type="submit">Create</button>
-        </form>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card>
-      <table mat-table [dataSource]="tasks()">
-        <ng-container matColumnDef="title">
-          <th mat-header-cell *matHeaderCellDef>Title</th>
-          <td mat-cell *matCellDef="let task">
-            <strong>{{ task.title }}</strong>
-            <div class="cell-desc">{{ task.description }}</div>
-          </td>
-        </ng-container>
-        <ng-container matColumnDef="status">
-          <th mat-header-cell *matHeaderCellDef>Status</th>
-          <td mat-cell *matCellDef="let task">
-            <mat-chip-set>
-              <mat-chip>{{ task.status }}</mat-chip>
-            </mat-chip-set>
-          </td>
-        </ng-container>
-        <ng-container matColumnDef="priority">
-          <th mat-header-cell *matHeaderCellDef>Priority</th>
-          <td mat-cell *matCellDef="let task">{{ task.priority }}</td>
-        </ng-container>
-        <tr mat-header-row *matHeaderRowDef="columns"></tr>
-        <tr mat-row *matRowDef="let row; columns: columns"></tr>
-      </table>
-    </mat-card>
+    <table mat-table [dataSource]="tasks()">
+      <ng-container matColumnDef="title">
+        <th mat-header-cell *matHeaderCellDef>Title</th>
+        <td mat-cell *matCellDef="let task">
+          <strong>{{ task.title }}</strong>
+          <div class="cell-desc">{{ task.description }}</div>
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="project">
+        <th mat-header-cell *matHeaderCellDef>Project</th>
+        <td mat-cell *matCellDef="let task">{{ projectName(task.projectId) }}</td>
+      </ng-container>
+      <ng-container matColumnDef="assignee">
+        <th mat-header-cell *matHeaderCellDef>Assignee</th>
+        <td mat-cell *matCellDef="let task">{{ userName(task.assigneeId) }}</td>
+      </ng-container>
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let task">
+          <mat-chip>{{ task.status }}</mat-chip>
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="priority">
+        <th mat-header-cell *matHeaderCellDef>Priority</th>
+        <td mat-cell *matCellDef="let task">{{ task.priority }}</td>
+      </ng-container>
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef></th>
+        <td mat-cell *matCellDef="let task">
+          <button mat-icon-button type="button" class="df-action-edit" matTooltip="Edit" (click)="openEdit(task)">
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button mat-icon-button type="button" class="df-action-delete" matTooltip="Delete" (click)="remove(task)">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+      <tr mat-header-row *matHeaderRowDef="columns"></tr>
+      <tr mat-row *matRowDef="let row; columns: columns"></tr>
+    </table>
   `,
   styles: `
-    .form-card,
-    mat-card {
-      border: 1px solid #e2e8f0;
-      box-shadow: none;
-    }
-
-    .form-card {
-      margin-bottom: 24px;
-    }
-
-    .page-toolbar mat-form-field {
-      flex: 1;
-      min-width: 160px;
-    }
-
-    .page-toolbar button {
-      height: 56px;
-      margin-top: 4px;
-    }
-
-    table {
-      width: 100%;
-    }
-
-    .cell-desc {
-      color: #64748b;
-      font-size: 0.8125rem;
-    }
+    table { width: 100%; background: #fff; }
+    .cell-desc { color: #64748b; font-size: 0.8125rem; }
+    .df-action-edit { color: #2563eb; }
+    .df-action-delete { color: #dc2626; }
   `,
 })
 export class TasksPage {
   private readonly api = inject(ApiService);
+  private readonly dialog = inject(MatDialog);
   protected readonly tasks = signal<Task[]>([]);
   protected readonly projects = signal<Project[]>([]);
-  protected readonly columns = ['title', 'status', 'priority'];
-  protected projectId = '';
-  protected title = '';
-  protected description = '';
+  protected readonly users = signal<User[]>([]);
+  protected readonly columns = ['title', 'project', 'assignee', 'status', 'priority', 'actions'];
 
   constructor() {
-    this.api.projects().subscribe((projects) => {
-      this.projects.set(projects);
-      this.projectId = projects[0]?.id ?? '';
-    });
     this.reload();
   }
 
-  create() {
-    this.api
-      .createTask({
-        projectId: this.projectId,
-        title: this.title,
-        description: this.description,
+  projectName(id: string) {
+    return this.projects().find((project) => project.id === id)?.name ?? '—';
+  }
+
+  userName(id?: string) {
+    if (!id) return 'Unassigned';
+    return this.users().find((user) => user.id === id)?.name ?? '—';
+  }
+
+  openCreate() {
+    this.dialog
+      .open(TaskFormDialogComponent, {
+        data: { projects: this.projects(), users: this.users() },
       })
-      .subscribe(() => {
-        this.title = '';
-        this.description = '';
-        this.reload();
+      .afterClosed()
+      .subscribe((value) => {
+        if (!value) return;
+        this.api.createTask(value).subscribe(() => this.reload());
+      });
+  }
+
+  openEdit(task: Task) {
+    this.dialog
+      .open(TaskFormDialogComponent, {
+        data: { task, projects: this.projects(), users: this.users() },
+      })
+      .afterClosed()
+      .subscribe((value) => {
+        if (!value) return;
+        this.api.updateTask(task.id, value).subscribe(() => this.reload());
+      });
+  }
+
+  remove(task: Task) {
+    this.dialog
+      .open(ConfirmDialogComponent, {
+        data: { title: 'Delete task', message: `Delete "${task.title}"?` },
+      })
+      .afterClosed()
+      .subscribe((ok) => {
+        if (!ok) return;
+        this.api.deleteTask(task.id).subscribe(() => this.reload());
       });
   }
 
   private reload() {
+    this.api.users().subscribe((users) => this.users.set(users));
+    this.api.projects().subscribe((projects) => this.projects.set(projects));
     this.api.tasks().subscribe((tasks) => this.tasks.set(tasks));
   }
 }

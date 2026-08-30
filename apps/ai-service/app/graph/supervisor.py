@@ -20,7 +20,10 @@ except ImportError:  # optional at runtime; we still expose a LangGraph-shaped A
 
 def route_message(message: str) -> str:
     text = message.lower()
-    if re.search(r"(create|add|open).*(task|ticket)|assign|create task", text):
+    if re.search(
+        r"(create|add|open|edit|update|delete|remove|assign|archive).*(task|ticket|project|user|member)",
+        text,
+    ) or text.startswith("create task"):
         return "task"
     if re.search(r"(how many|analytics|metrics|status of tasks|dashboard)", text):
         return "analytics"

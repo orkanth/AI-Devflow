@@ -60,6 +60,33 @@ export class MemoryStore {
     };
   }
 
+  removeUser(id: string): void {
+    const fallback = this.users.find((user) => user.id !== id);
+    this.users = this.users.filter((user) => user.id !== id);
+    if (fallback) {
+      for (const project of this.projects) {
+        if (project.ownerId === id) {
+          project.ownerId = fallback.id;
+        }
+      }
+    }
+    for (const task of this.tasks) {
+      if (task.assigneeId === id) {
+        task.assigneeId = undefined;
+      }
+    }
+  }
+
+  removeProject(id: string): void {
+    this.projects = this.projects.filter((project) => project.id !== id);
+    this.tasks = this.tasks.filter((task) => task.projectId !== id);
+    this.chunks = this.chunks.filter((chunk) => chunk.projectId !== id);
+  }
+
+  removeTask(id: string): void {
+    this.tasks = this.tasks.filter((task) => task.id !== id);
+  }
+
   private seed(): void {
     const now = new Date().toISOString();
     const ada: User = {

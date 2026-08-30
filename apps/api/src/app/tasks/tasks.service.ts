@@ -47,7 +47,19 @@ export class TasksService {
 
   update(id: string, dto: UpdateTaskDto) {
     const task = this.findOne(id);
+    if (dto.assigneeId) {
+      const exists = this.store.users.some((user) => user.id === dto.assigneeId);
+      if (!exists) {
+        throw new NotFoundException(`User ${dto.assigneeId} not found`);
+      }
+    }
     Object.assign(task, dto, { updatedAt: new Date().toISOString() });
     return task;
+  }
+
+  remove(id: string) {
+    this.findOne(id);
+    this.store.removeTask(id);
+    return { id, deleted: true };
   }
 }

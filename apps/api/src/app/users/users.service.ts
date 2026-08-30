@@ -1,7 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { MemoryStore } from '../store/memory.store';
-import { CreateUserDto } from './users.dto';
+import { CreateUserDto, UpdateUserDto } from './users.dto';
 
 @Injectable()
 export class UsersService {
@@ -19,6 +19,11 @@ export class UsersService {
     return user;
   }
 
+  findByName(name: string) {
+    const needle = name.trim().toLowerCase();
+    return this.store.users.find((user) => user.name.toLowerCase() === needle);
+  }
+
   create(dto: CreateUserDto) {
     const user = {
       id: randomUUID(),
@@ -27,5 +32,20 @@ export class UsersService {
     };
     this.store.users.push(user);
     return user;
+  }
+
+  update(id: string, dto: UpdateUserDto) {
+    const user = this.findOne(id);
+    Object.assign(user, dto);
+    return user;
+  }
+
+  remove(id: string) {
+    this.findOne(id);
+    if (this.store.users.length === 1) {
+      throw new BadRequestException('Cannot delete the last user');
+    }
+    this.store.removeUser(id);
+    return { id, deleted: true };
   }
 }

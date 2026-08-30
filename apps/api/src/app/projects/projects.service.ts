@@ -42,4 +42,10 @@ export class ProjectsService {
     Object.assign(project, dto);
     return project;
   }
+
+  remove(id: string) {
+    this.findOne(id);
+    this.store.removeProject(id);
+    return { id, deleted: true };
+  }
 }

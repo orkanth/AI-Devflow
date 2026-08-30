@@ -31,6 +31,8 @@ export class ShellSidebarComponent {
     { label: 'Dashboard', route: '/', icon: 'dashboard', exact: true },
     { label: 'Projects', route: '/projects', icon: 'folder' },
     { label: 'Tasks', route: '/tasks', icon: 'assignment' },
+    { label: 'Users', route: '/users', icon: 'group' },
+    { label: 'Profile', route: '/profile', icon: 'person' },
     { label: 'Knowledge / RAG', route: '/knowledge', icon: 'auto_stories' },
     { label: 'AI Console', route: '/chat', icon: 'smart_toy' },
     { label: 'Interview notes', route: '/learn', icon: 'school' },

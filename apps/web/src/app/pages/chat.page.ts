@@ -28,7 +28,7 @@ import { ApiService, ChatResult, Project } from '../services/api.service';
       <div>
         <h1 class="page-title">AI console</h1>
         <p class="page-subtitle">
-          NestJS proxies to FastAPI. If Python is down, NestJS runs the same supervisor locally.
+          NestJS proxies to FastAPI. Create, edit, assign, and delete users/projects/tasks from here or the pages.
         </p>
       </div>
     </header>
@@ -121,6 +121,8 @@ export class ChatPage {
   protected readonly prompts = [
     'explain pgvector cosine search',
     'create task: Write LangGraph interview notes',
+    'assign task "Wire FastAPI LangGraph supervisor" to Grace Hopper',
+    'delete task "Blocked: production embedding provider"',
     'how many tasks are open?',
   ];
 
