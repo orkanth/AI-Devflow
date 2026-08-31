@@ -77,6 +77,25 @@ docker compose up -d
 
 The prototype **does not require Docker or an OpenAI key**. Embeddings are a deterministic hashing trick (same algorithm in NestJS and Python). NestJS falls back to a local supervisor if FastAPI is down.
 
+### Use GPT (optional)
+
+Set an OpenAI-compatible key, then **restart FastAPI** (`npx nx serve ai-service`):
+
+```bash
+export OPENAI_API_KEY=sk-...
+# optional
+export OPENAI_MODEL=gpt-4o-mini
+# export OPENAI_BASE_URL=https://api.openai.com/v1
+```
+
+Or copy `.env.example` to `.env` at the repo root (never commit the key). With a key:
+
+- the supervisor **classifies** routes with GPT (regex if the call fails)
+- the RAG agent **generates** from retrieved chunks (extractive if the call fails)
+- the task agent **plans** a NestJS tool call from a live catalog (regex intents if the call fails)
+
+Health: `GET http://localhost:8000/health` → `llm.enabled`. The AI console subtitle shows GPT vs fallback.
+
 ## Why this split (the 30-second interview answer)
 
 - **Angular** renders the product and talks HTTP. It never owns business rules.

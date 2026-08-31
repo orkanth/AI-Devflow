@@ -7,6 +7,7 @@ from typing import Callable
 from app.graph.agents.analytics_agent import run_analytics_agent
 from app.graph.agents.rag_agent import run_rag_agent
 from app.graph.agents.task_agent import run_task_agent
+from app.llm import classify_route, llm_status
 from app.schemas import ChatRequest, ChatResponse, GraphState
 from app.tools.nestjs_tools import NestJsTools
 from app.vectorstore import VectorStore
@@ -28,6 +29,10 @@ def route_message(message: str) -> str:
     if re.search(r"(how many|analytics|metrics|status of tasks|dashboard)", text):
         return "analytics"
     return "rag"
+
+
+def resolve_route(message: str) -> str:
+    return classify_route(message) or route_message(message)
 
 
 class SupervisorGraph:
@@ -55,12 +60,14 @@ class SupervisorGraph:
             answer=state.answer,
             route=state.route,
             source="fastapi",
+            llm=bool(llm_status()["enabled"]),
+            model=llm_status()["model"],
             trace=state.trace,
             contexts=state.contexts,
         )
 
     def _run_python(self, state: GraphState) -> GraphState:
-        state.route = route_message(state.message)  # type: ignore[assignment]
+        state.route = resolve_route(state.message)  # type: ignore[assignment]
         return self._dispatch(state)
 
     def _dispatch(self, state: GraphState) -> GraphState:
@@ -83,7 +90,7 @@ class SupervisorGraph:
     def _build_langgraph(self):
         def supervisor(state: dict) -> dict:
             parsed = GraphState.model_validate(state)
-            parsed.route = route_message(parsed.message)  # type: ignore[assignment]
+            parsed.route = resolve_route(parsed.message)  # type: ignore[assignment]
             return parsed.model_dump()
 
         def task_node(state: dict) -> dict:

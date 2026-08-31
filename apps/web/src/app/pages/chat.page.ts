@@ -8,7 +8,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
-import { ApiService, ChatResult, Project } from '../services/api.service';
+import { AiStatus, ApiService, ChatResult, Project } from '../services/api.service';
 
 @Component({
   selector: 'df-chat',
@@ -28,7 +28,11 @@ import { ApiService, ChatResult, Project } from '../services/api.service';
       <div>
         <h1 class="page-title">AI console</h1>
         <p class="page-subtitle">
-          NestJS proxies to FastAPI. Create, edit, assign, and delete users/projects/tasks from here or the pages.
+          @if (aiStatus()?.llm?.enabled) {
+            GPT is on ({{ aiStatus()?.llm?.model }}). Supervisor routing, RAG answers, and task plans use OpenAI; regex still runs if a call fails.
+          } @else {
+            GPT is off — set OPENAI_API_KEY and restart FastAPI. Regex routing and extractive RAG still work.
+          }
         </p>
       </div>
     </header>
@@ -70,7 +74,10 @@ import { ApiService, ChatResult, Project } from '../services/api.service';
       <mat-card class="form-card">
         <mat-card-header>
           <mat-card-title>Answer</mat-card-title>
-          <mat-card-subtitle>route={{ chat.route }} · source={{ chat.source }}</mat-card-subtitle>
+          <mat-card-subtitle>
+            route={{ chat.route }} · source={{ chat.source }} ·
+            {{ chat.llm ? 'GPT ' + (chat.model || '') : 'no GPT (fallback)' }}
+          </mat-card-subtitle>
         </mat-card-header>
         <mat-card-content>
           <p>{{ chat.answer }}</p>
@@ -116,6 +123,7 @@ export class ChatPage {
   protected readonly projects = signal<Project[]>([]);
   protected readonly result = signal<ChatResult | null>(null);
   protected readonly busy = signal(false);
+  protected readonly aiStatus = signal<AiStatus | null>(null);
   protected projectId = '';
   protected message = 'explain pgvector cosine search';
   protected readonly prompts = [
@@ -128,6 +136,7 @@ export class ChatPage {
 
   constructor() {
     this.api.projects().subscribe((projects) => this.projects.set(projects));
+    this.api.aiStatus().subscribe((status) => this.aiStatus.set(status));
   }
 
   send() {

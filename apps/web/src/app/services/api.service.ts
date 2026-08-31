@@ -40,12 +40,20 @@ export interface ChatResult {
   answer: string;
   route: string;
   source: string;
+  llm?: boolean;
+  model?: string | null;
   trace: Array<{
     agent: string;
     reason: string;
     toolCalls: Array<{ tool: string; args: unknown; result: unknown }>;
   }>;
   contexts?: Array<{ title: string; score: number; content: string }>;
+}
+
+export interface AiStatus {
+  status: string;
+  service?: string;
+  llm?: { enabled: boolean; model: string | null; provider: string | null };
 }
 
 export interface WorkspaceStats {
@@ -136,6 +144,10 @@ export class ApiService {
 
   analytics() {
     return this.http.get<WorkspaceStats>(`${this.base}/ai/analytics`);
+  }
+
+  aiStatus() {
+    return this.http.get<AiStatus>(`${this.base}/ai/status`);
   }
 
   chat(message: string, projectId?: string): Observable<ChatResult> {

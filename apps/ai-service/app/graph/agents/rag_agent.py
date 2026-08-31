@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.llm import answer_with_context
 from app.schemas import AgentTrace, ContextChunk, GraphState, ToolCall
 from app.vectorstore import VectorStore
 
@@ -10,18 +11,27 @@ def run_rag_agent(state: GraphState, store: VectorStore) -> GraphState:
         ContextChunk(title=hit["title"], score=hit["score"], content=hit["content"])
         for hit in hits
     ]
-    if not state.contexts:
+    generated = answer_with_context(
+        state.message,
+        [chunk.model_dump() for chunk in state.contexts],
+    )
+    if generated:
+        state.answer = generated
+        reason = "GPT answered from retrieved chunks."
+    elif not state.contexts:
         state.answer = "RAG agent found no matching chunks in the vector store."
+        reason = "Question answering over embeddings / pgvector."
     else:
         top = state.contexts[0]
         state.answer = (
             f"RAG agent retrieved {len(state.contexts)} chunks. "
             f"Top match: {top.title} (cosine {top.score}). {top.content}"
         )
+        reason = "Extractive fallback (no OPENAI_API_KEY or GPT call failed)."
     state.trace.append(
         AgentTrace(
             agent="rag",
-            reason="Question answering over embeddings / pgvector.",
+            reason=reason,
             tool_calls=[
                 ToolCall(
                     tool="search_knowledge",

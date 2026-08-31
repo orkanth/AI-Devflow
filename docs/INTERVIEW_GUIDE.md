@@ -124,9 +124,9 @@ If the Python agent wrote tasks into its own SQLite file, you would have two sou
 START → supervisor (route) → task | rag | analytics → END
 ```
 
-- **Supervisor** classifies intent (keywords now; LLM router when you add a key).
-- **Task agent** performs side effects through tools (NestJS).
-- **RAG agent** retrieves then answers from chunks.
+- **Supervisor** classifies intent with GPT when `OPENAI_API_KEY` is set; otherwise the same regex router.
+- **Task agent** performs side effects through tools (NestJS). GPT can plan `{tool, args}` from a catalog of ids.
+- **RAG agent** retrieves hashing-trick chunks, then GPT generates from that context (extractive fallback).
 - **Analytics agent** reads aggregates, does not invent numbers.
 
 If `langgraph` is installed, `SupervisorGraph` compiles a real `StateGraph`. If not, it runs the same node functions. That is honest: the *architecture* is LangGraph even when the wheel is a Python function.
@@ -164,7 +164,7 @@ NestJS (`apps/api/src/app/store/embeddings.ts`) and Python (`apps/ai-service/app
 3. **Generate:** prompt = question + chunks; answer grounded in context.
 4. **Evaluate:** was the answer faithful to those chunks?
 
-This repo does 1–2 and a lexical 4. Generation is extractive (returns the top chunk) until you plug in an LLM.
+This repo does 1–4. Retrieval uses the hashing-trick index. Generation uses GPT when `OPENAI_API_KEY` is set; otherwise the agent returns the top chunk (extractive). Eval is still lexical Jaccard, not LLM-as-judge.
 
 **Chunking (what to say next).** 200–500 tokens, overlap 10–20%, keep metadata (`projectId`, `source`) for filters.
 
@@ -261,7 +261,7 @@ LIMIT 4;
 5. AI console: *explain pgvector* → RAG route + scores.
 6. AI console: *create task: …* → task agent tool call.
 7. AI console: *how many tasks* → analytics.
-8. Mention: FastAPI down → Nest fallback; Docker → real pgvector; API key → swap hashing trick for OpenAI embeddings + LLM generate.
+8. Mention: FastAPI down → Nest fallback; Docker → real pgvector; `OPENAI_API_KEY` → GPT route/generate/tool-plan (hashing embeddings stay until you swap the embedder).
 
 ---
 

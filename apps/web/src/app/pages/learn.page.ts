@@ -90,7 +90,7 @@ FastAPI  --LangGraph supervisor--  Task | RAG | Analytics
     },
     {
       title: 'Supervisor vs workers',
-      body: 'The supervisor classifies intent. Workers specialize: task (tools), RAG (vectors), analytics (SQL aggregates).',
+      body: 'The supervisor classifies intent (GPT if OPENAI_API_KEY is set, else regex). Workers specialize: task (tools), RAG (vectors), analytics (SQL aggregates).',
     },
     {
       title: 'MCP',

@@ -32,6 +32,8 @@ class ChatResponse(BaseModel):
     answer: str
     route: Literal["task", "rag", "analytics"]
     source: str = "fastapi"
+    llm: bool = False
+    model: str | None = None
     trace: list[AgentTrace]
     contexts: list[ContextChunk] = Field(default_factory=list)
 

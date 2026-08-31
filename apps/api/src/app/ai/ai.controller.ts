@@ -15,6 +15,11 @@ export class AiController {
     return this.ai.chat(dto);
   }
 
+  @Get('status')
+  status() {
+    return this.ai.status();
+  }
+
   @Get('analytics')
   analytics() {
     return this.store.analytics();

@@ -13,6 +13,8 @@ export interface ChatResult {
   answer: string;
   route: string;
   source: 'fastapi' | 'nestjs-fallback';
+  llm?: boolean;
+  model?: string | null;
   trace: AgentTrace[];
   contexts?: Array<{ title: string; score: number; content: string }>;
 }
@@ -28,6 +30,24 @@ export class AiService {
     private readonly tasks: TasksService
   ) {}
 
+  async status() {
+    try {
+      const response = await fetch(`${this.aiUrl}/health`, {
+        signal: AbortSignal.timeout(2000),
+      });
+      if (!response.ok) {
+        throw new Error(`AI service HTTP ${response.status}`);
+      }
+      return await response.json();
+    } catch {
+      return {
+        status: 'unreachable',
+        service: 'ai-service',
+        llm: { enabled: false, model: null, provider: null },
+      };
+    }
+  }
+
   async chat(dto: ChatDto): Promise<ChatResult> {
     try {
       const response = await fetch(`${this.aiUrl}/v1/chat`, {
@@ -37,13 +57,18 @@ export class AiService {
           message: dto.message,
           project_id: dto.projectId ?? this.store.projects[0]?.id,
         }),
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(45_000),
       });
       if (!response.ok) {
         throw new Error(`AI service HTTP ${response.status}`);
       }
       const payload = (await response.json()) as ChatResult;
-      return { ...payload, source: 'fastapi' };
+      return {
+        ...payload,
+        source: 'fastapi',
+        llm: payload.llm ?? false,
+        model: payload.model ?? null,
+      };
     } catch (error) {
       this.logger.warn(
         `FastAPI unavailable, using NestJS fallback: ${(error as Error).message}`
@@ -87,6 +112,8 @@ export class AiService {
       answer: `Created task "${task.title}" in project ${projectId}.`,
       route: 'task',
       source: 'nestjs-fallback',
+      llm: false,
+      model: null,
       trace: [
         {
           agent: 'task',
@@ -114,6 +141,8 @@ export class AiService {
       answer,
       route: 'rag',
       source: 'nestjs-fallback',
+      llm: false,
+      model: null,
       contexts,
       trace: [
         {
@@ -137,6 +166,8 @@ export class AiService {
       answer: `Workspace has ${stats.users} users, ${stats.projects} projects, ${stats.tasks} tasks (${JSON.stringify(stats.tasksByStatus)}), and ${stats.knowledgeChunks} knowledge chunks.`,
       route: 'analytics',
       source: 'nestjs-fallback',
+      llm: false,
+      model: null,
       trace: [
         {
           agent: 'analytics',

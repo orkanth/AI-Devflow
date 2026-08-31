@@ -1,4 +1,9 @@
+import os
+
+os.environ.pop("OPENAI_API_KEY", None)
+
 from app.embeddings import cosine_similarity, embed
+from app.llm import _parse_json
 from app.eval.evaluator import evaluate
 from app.graph.supervisor import SupervisorGraph, route_message
 from app.schemas import ChatRequest, EvalRequest
@@ -51,6 +56,8 @@ def test_rag_agent_returns_context():
     assert result.route == "rag"
     assert result.contexts
     assert "supervisor" in result.answer.lower()
+    assert result.llm is False
+    assert result.model is None
 
 
 def test_task_agent_tool_call():
@@ -81,3 +88,10 @@ def test_evaluation_scores_overlap():
     )
     assert scores.faithfulness > 0
     assert scores.context_precision > 0
+
+
+def test_parse_json_tolerates_fences():
+    assert _parse_json('{"route": "rag"}')["route"] == "rag"
+    assert _parse_json('Sure.\n```json\n{"tool": "create_task", "args": {}}\n```')[
+        "tool"
+    ] == "create_task"

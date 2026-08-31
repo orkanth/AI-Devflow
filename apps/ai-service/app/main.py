@@ -1,8 +1,17 @@
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+_root = Path(__file__).resolve().parents[3]
+load_dotenv(_root / ".env")
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.eval.evaluator import evaluate
 from app.graph.supervisor import SupervisorGraph
+from app.llm import llm_status
 from app.schemas import ChatRequest, ChatResponse, EvalRequest, EvalResponse
 from app.tools.mcp_registry import (
     MCPRegistry,
@@ -39,6 +48,7 @@ def health() -> dict:
         "service": "ai-service",
         "chunks": len(store.chunks),
         "mcp_tools": [spec.name for spec in mcp.list_tools()],
+        "llm": llm_status(),
     }
 
 

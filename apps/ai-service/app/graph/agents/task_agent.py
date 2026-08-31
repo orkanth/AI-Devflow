@@ -2,24 +2,90 @@ from __future__ import annotations
 
 import re
 
+from app.llm import llm_enabled, plan_workspace_action
 from app.schemas import AgentTrace, GraphState, ToolCall
 from app.tools.nestjs_tools import NestJsTools
 
 
 def run_task_agent(state: GraphState, tools: NestJsTools) -> GraphState:
-    intent = _intent(state.message)
-    tool_name, args, result, answer = _execute(intent, state, tools)
+    planned = _try_llm_plan(state, tools)
+    if planned:
+        tool_name, args, result, answer, reason = planned
+    else:
+        intent = _intent(state.message)
+        tool_name, args, result, answer = _execute(intent, state, tools)
+        reason = f"Workspace write intent: {intent}."
     state.answer = answer
     if isinstance(result, dict) and result.get("error"):
         state.answer += f" NestJS error: {result['error']}"
     state.trace.append(
         AgentTrace(
             agent="task",
-            reason=f"Workspace write intent: {intent}.",
+            reason=reason,
             tool_calls=[ToolCall(tool=tool_name, args=args, result=result)],
         )
     )
     return state
+
+
+def _try_llm_plan(state: GraphState, tools: NestJsTools):
+    if not llm_enabled():
+        return None
+    catalog = {
+        "users": [
+            {"id": user.get("id"), "name": user.get("name")}
+            for user in tools.list_users()[:20]
+        ],
+        "projects": [
+            {"id": project.get("id"), "name": project.get("name")}
+            for project in tools.list_projects()[:20]
+        ],
+        "tasks": [
+            {"id": task.get("id"), "title": task.get("title")}
+            for task in tools.list_tasks()[:40]
+        ],
+        "project_id": state.project_id,
+    }
+    plan = plan_workspace_action(state.message, catalog)
+    if not plan:
+        return None
+    tool = plan["tool"]
+    args = plan["args"]
+    result = _run_planned_tool(tools, tool, args, state)
+    return tool, args, result, f'GPT planned `{tool}` and NestJS executed it.', "GPT planned a NestJS tool call."
+
+
+def _run_planned_tool(tools: NestJsTools, tool: str, args: dict, state: GraphState):
+    if tool == "create_task":
+        return tools.create_task(
+            project_id=args.get("project_id") or state.project_id or "",
+            title=args.get("title") or state.message[:80],
+            description=args.get("description") or state.message,
+            assignee_id=args.get("assignee_id"),
+        )
+    if tool == "update_task":
+        task_id = args.get("task_id") or args.get("id")
+        if not task_id:
+            return {"error": "missing task_id"}
+        return tools.update_task(task_id, **{k: v for k, v in args.items() if k != "task_id"})
+    if tool == "delete_task":
+        return tools.delete_task(args.get("task_id") or args.get("id") or "")
+    if tool == "create_project":
+        users = tools.list_users()
+        return tools.create_project(
+            name=args.get("name") or "New project",
+            description=args.get("description") or state.message,
+            owner_id=args.get("owner_id") or (users[0]["id"] if users else ""),
+        )
+    if tool == "delete_project":
+        return tools.delete_project(args.get("project_id") or args.get("id") or "")
+    if tool == "create_user":
+        name = args.get("name") or "New teammate"
+        email = args.get("email") or f"{name.lower().replace(' ', '.')}@devflow.ai"
+        return tools.create_user(name=name, email=email, role=args.get("role") or "engineer")
+    if tool == "delete_user":
+        return tools.delete_user(args.get("user_id") or args.get("id") or "")
+    return {"error": f"unknown tool {tool}"}
 
 
 def _intent(message: str) -> str:
