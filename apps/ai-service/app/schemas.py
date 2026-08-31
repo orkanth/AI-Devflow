@@ -32,6 +32,7 @@ class ChatResponse(BaseModel):
     answer: str
     route: Literal["task", "rag", "analytics"]
     source: str = "fastapi"
+    engine: str = "langgraph"
     llm: bool = False
     model: str | None = None
     trace: list[AgentTrace]

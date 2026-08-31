@@ -5,6 +5,8 @@ httpx>=0.27.0
 python-dotenv>=1.0.0
 numpy>=2.0.0
 pytest>=8.3.0
-# Optional: compile a real LangGraph StateGraph when these are installed.
 langgraph>=0.2.0
+langchain>=0.3.0
 langchain-core>=0.3.0
+langchain-openai>=0.2.0
+langchain-text-splitters>=0.3.0

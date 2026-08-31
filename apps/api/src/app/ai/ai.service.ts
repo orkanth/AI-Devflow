@@ -15,6 +15,7 @@ export interface ChatResult {
   source: 'fastapi' | 'nestjs-fallback';
   llm?: boolean;
   model?: string | null;
+  engine?: string;
   trace: AgentTrace[];
   contexts?: Array<{ title: string; score: number; content: string }>;
 }
@@ -68,6 +69,7 @@ export class AiService {
         source: 'fastapi',
         llm: payload.llm ?? false,
         model: payload.model ?? null,
+        engine: payload.engine ?? 'langgraph',
       };
     } catch (error) {
       this.logger.warn(
@@ -112,6 +114,7 @@ export class AiService {
       answer: `Created task "${task.title}" in project ${projectId}.`,
       route: 'task',
       source: 'nestjs-fallback',
+      engine: 'nestjs',
       llm: false,
       model: null,
       trace: [
@@ -141,6 +144,7 @@ export class AiService {
       answer,
       route: 'rag',
       source: 'nestjs-fallback',
+      engine: 'nestjs',
       llm: false,
       model: null,
       contexts,
@@ -166,6 +170,7 @@ export class AiService {
       answer: `Workspace has ${stats.users} users, ${stats.projects} projects, ${stats.tasks} tasks (${JSON.stringify(stats.tasksByStatus)}), and ${stats.knowledgeChunks} knowledge chunks.`,
       route: 'analytics',
       source: 'nestjs-fallback',
+      engine: 'nestjs',
       llm: false,
       model: null,
       trace: [

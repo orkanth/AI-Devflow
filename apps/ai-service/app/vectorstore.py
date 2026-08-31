@@ -51,7 +51,13 @@ class VectorStore:
 
     def search(self, query: str, project_id: str | None = None, k: int = 4) -> list[dict[str, Any]]:
         query_vector = embed(query)
-        corpus = [chunk for chunk in self.chunks if project_id is None or chunk.project_id == project_id]
+        corpus = [
+            chunk
+            for chunk in self.chunks
+            if project_id is None or chunk.project_id == project_id
+        ]
+        if project_id and not corpus:
+            corpus = list(self.chunks)
         ranked = sorted(
             (
                 {

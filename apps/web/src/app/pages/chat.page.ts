@@ -29,9 +29,9 @@ import { AiStatus, ApiService, ChatResult, Project } from '../services/api.servi
         <h1 class="page-title">AI console</h1>
         <p class="page-subtitle">
           @if (aiStatus()?.llm?.enabled) {
-            GPT is on ({{ aiStatus()?.llm?.model }}). Supervisor routing, RAG answers, and task plans use OpenAI; regex still runs if a call fails.
+            LangGraph supervisor + LangChain RAG with GPT ({{ aiStatus()?.llm?.model }}).
           } @else {
-            GPT is off — set OPENAI_API_KEY and restart FastAPI. Regex routing and extractive RAG still work.
+            LangGraph is on; GPT is off. Set OPENAI_API_KEY and restart FastAPI to generate from retrieved chunks.
           }
         </p>
       </div>
@@ -75,8 +75,8 @@ import { AiStatus, ApiService, ChatResult, Project } from '../services/api.servi
         <mat-card-header>
           <mat-card-title>Answer</mat-card-title>
           <mat-card-subtitle>
-            route={{ chat.route }} · source={{ chat.source }} ·
-            {{ chat.llm ? 'GPT ' + (chat.model || '') : 'no GPT (fallback)' }}
+            route={{ chat.route }} · engine={{ chat.engine || 'langgraph' }} · source={{ chat.source }} ·
+            {{ chat.llm ? 'GPT ' + (chat.model || '') : 'no GPT (extractive RAG)' }}
           </mat-card-subtitle>
         </mat-card-header>
         <mat-card-content>

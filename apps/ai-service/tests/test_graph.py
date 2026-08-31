@@ -57,7 +57,22 @@ def test_rag_agent_returns_context():
     assert result.contexts
     assert "supervisor" in result.answer.lower()
     assert result.llm is False
-    assert result.model is None
+    assert result.engine == "langgraph"
+
+
+def test_langgraph_compiles():
+    graph = SupervisorGraph(default_store(), tools=SilentNest())
+    assert graph._compiled is not None
+
+
+def test_langchain_retriever_builds_documents():
+    from app.rag.pipeline import format_documents, retrieve_documents
+
+    hits, docs = retrieve_documents(default_store(), "pgvector cosine search")
+    assert hits
+    assert docs
+    packed = format_documents(docs)
+    assert "pgvector" in packed.lower()
 
 
 def test_task_agent_tool_call():

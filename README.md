@@ -42,7 +42,7 @@ Nx monorepo prototype of an **agentic engineering project-management platform**.
 | --- | --- |
 | Frontend | Angular 22 + Angular Material (same chrome as [orkanth/devflow](https://github.com/orkanth/devflow)) |
 | Backend | NestJS 11 |
-| AI | FastAPI + LangGraph-style supervisor |
+| AI | FastAPI + LangChain RAG + LangGraph supervisor + GPT |
 | Data | PostgreSQL + pgvector (in-memory adapter by default) |
 | Monorepo | Nx 23 |
 
@@ -52,7 +52,7 @@ Nx monorepo prototype of an **agentic engineering project-management platform**.
 | --- | --- | --- | --- |
 | Angular UI | `apps/web` | 4200 | Dashboard, CRUD screens, AI console, interview notes |
 | NestJS API | `apps/api` | 3333 | System of record for users, projects, tasks; AI proxy + WebSocket |
-| FastAPI AI | `apps/ai-service` | 8000 | LangGraph supervisor, RAG, MCP-style tools, evaluation |
+| FastAPI AI | `apps/ai-service` | 8000 | LangGraph supervisor, LangChain RAG, NestJS tools, eval |
 | Postgres | `docker-compose.yml` | 5432 | OLTP + `pgvector` (optional; in-memory adapter is the default) |
 
 ## Quick start
@@ -90,11 +90,11 @@ export OPENAI_MODEL=gpt-4o-mini
 
 Or copy `.env.example` to `.env` at the repo root (never commit the key). With a key:
 
-- the supervisor **classifies** routes with GPT (regex if the call fails)
-- the RAG agent **generates** from retrieved chunks (extractive if the call fails)
-- the task agent **plans** a NestJS tool call from a live catalog (regex intents if the call fails)
+- LangGraph **supervisor** classifies with LangChain `ChatOpenAI` (regex if the call fails)
+- RAG **retrieves** hashing-trick chunks, then **generates** with LCEL (`prompt | ChatOpenAI | parser`)
+- Task agent uses LangChain **`bind_tools`** against NestJS (regex intents if the call fails)
 
-Health: `GET http://localhost:8000/health` → `llm.enabled`. The AI console subtitle shows GPT vs fallback.
+Health: `GET http://localhost:8000/health` → `llm.enabled` and `langgraph`. The AI console shows GPT vs fallback.
 
 ## Why this split (the 30-second interview answer)
 
@@ -106,7 +106,7 @@ Health: `GET http://localhost:8000/health` → `llm.enabled`. The AI console sub
 
 ## Learn the stack
 
-Read [`docs/INTERVIEW_GUIDE.md`](docs/INTERVIEW_GUIDE.md) — deep explanations of Nx, Angular, NestJS, FastAPI, Pydantic, LangChain/LangGraph, RAG, embeddings, tool calling, agents, MCP, evaluation, PostgreSQL, and pgvector.
+Read [`docs/INTERVIEW_GUIDE.md`](docs/INTERVIEW_GUIDE.md) and [`docs/LANGCHAIN_LANGGRAPH.md`](docs/LANGCHAIN_LANGGRAPH.md) (LangChain vs LangGraph vs RAG, mapped to this repo’s files).
 
 ## Node note
 

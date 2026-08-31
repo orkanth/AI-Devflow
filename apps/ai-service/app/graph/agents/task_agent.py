@@ -4,6 +4,7 @@ import re
 
 from app.llm import llm_enabled, plan_workspace_action
 from app.schemas import AgentTrace, GraphState, ToolCall
+from app.tools.langchain_tools import invoke_tool_calling, nestjs_tools
 from app.tools.nestjs_tools import NestJsTools
 
 
@@ -46,13 +47,27 @@ def _try_llm_plan(state: GraphState, tools: NestJsTools):
         ],
         "project_id": state.project_id,
     }
+    bound = invoke_tool_calling(
+        state.message,
+        catalog,
+        nestjs_tools(tools, default_project_id=state.project_id),
+    )
+    if bound:
+        tool, args, result = bound["tool"], bound["args"], bound["result"]
+        return (
+            tool,
+            args,
+            result,
+            f'LangChain tool calling ran `{tool}` against NestJS.',
+            "LangChain bind_tools → NestJS.",
+        )
     plan = plan_workspace_action(state.message, catalog)
     if not plan:
         return None
     tool = plan["tool"]
     args = plan["args"]
     result = _run_planned_tool(tools, tool, args, state)
-    return tool, args, result, f'GPT planned `{tool}` and NestJS executed it.', "GPT planned a NestJS tool call."
+    return tool, args, result, f'GPT planned `{tool}` and NestJS executed it.', "LangChain JSON plan → NestJS."
 
 
 def _run_planned_tool(tools: NestJsTools, tool: str, args: dict, state: GraphState):

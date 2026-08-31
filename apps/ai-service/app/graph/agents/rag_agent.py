@@ -1,33 +1,32 @@
 from __future__ import annotations
 
-from app.llm import answer_with_context
+from app.rag.pipeline import retrieve_documents, run_rag_chain
 from app.schemas import AgentTrace, ContextChunk, GraphState, ToolCall
 from app.vectorstore import VectorStore
 
 
 def run_rag_agent(state: GraphState, store: VectorStore) -> GraphState:
-    hits = store.search(state.message, project_id=state.project_id, k=3)
+    hits, documents = retrieve_documents(
+        store, state.message, project_id=state.project_id, k=3
+    )
     state.contexts = [
         ContextChunk(title=hit["title"], score=hit["score"], content=hit["content"])
         for hit in hits
     ]
-    generated = answer_with_context(
-        state.message,
-        [chunk.model_dump() for chunk in state.contexts],
-    )
+    generated = run_rag_chain(state.message, documents)
     if generated:
         state.answer = generated
-        reason = "GPT answered from retrieved chunks."
+        reason = "LangChain RAG: retrieve → ChatPromptTemplate | ChatOpenAI | StrOutputParser."
     elif not state.contexts:
         state.answer = "RAG agent found no matching chunks in the vector store."
-        reason = "Question answering over embeddings / pgvector."
+        reason = "Retrieve step returned no chunks above score 0."
     else:
         top = state.contexts[0]
         state.answer = (
-            f"RAG agent retrieved {len(state.contexts)} chunks. "
+            f"RAG retrieved {len(state.contexts)} chunks (extractive fallback, no GPT). "
             f"Top match: {top.title} (cosine {top.score}). {top.content}"
         )
-        reason = "Extractive fallback (no OPENAI_API_KEY or GPT call failed)."
+        reason = "Retrieved with LangChain Documents; generation skipped (no OPENAI_API_KEY)."
     state.trace.append(
         AgentTrace(
             agent="rag",

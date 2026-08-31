@@ -4,6 +4,8 @@ import os
 import re
 from typing import Callable
 
+from langgraph.graph import END, START, StateGraph
+
 from app.graph.agents.analytics_agent import run_analytics_agent
 from app.graph.agents.rag_agent import run_rag_agent
 from app.graph.agents.task_agent import run_task_agent
@@ -12,14 +14,9 @@ from app.schemas import ChatRequest, ChatResponse, GraphState
 from app.tools.nestjs_tools import NestJsTools
 from app.vectorstore import VectorStore
 
-try:
-    from langgraph.graph import END, StateGraph
-except ImportError:  # optional at runtime; we still expose a LangGraph-shaped API
-    END = "END"
-    StateGraph = None
-
 
 def route_message(message: str) -> str:
+    """Deterministic router used in tests and when GPT is off."""
     text = message.lower()
     if re.search(
         r"(create|add|open|edit|update|delete|remove|assign|archive).*(task|ticket|project|user|member)",
@@ -36,23 +33,25 @@ def resolve_route(message: str) -> str:
 
 
 class SupervisorGraph:
-    """LangGraph supervisor: one router node, three worker agents.
+    """LangGraph supervisor: START → supervisor → (task | rag | analytics) → END.
 
-    If `langgraph` is installed we compile a real StateGraph. Otherwise we
-    execute the same node functions in order — identical business logic, so
-    tests and interviews stay honest.
+    LangChain is used *inside* the nodes (ChatOpenAI, RAG LCEL, bind_tools).
+    LangGraph only decides *which node runs next* from shared state.
     """
 
     def __init__(self, store: VectorStore, tools: NestJsTools | None = None) -> None:
         self.store = store
         self.tools = tools or NestJsTools()
+        self.graph_error: str | None = None
         self._compiled = self._compile_langgraph()
 
     def invoke(self, request: ChatRequest) -> ChatResponse:
         state = GraphState(message=request.message, project_id=request.project_id)
+        engine = "python"
         if self._compiled is not None:
             raw = self._compiled.invoke(state.model_dump())
             state = GraphState.model_validate(raw)
+            engine = "langgraph"
         else:
             state = self._run_python(state)
         assert state.route is not None
@@ -60,6 +59,7 @@ class SupervisorGraph:
             answer=state.answer,
             route=state.route,
             source="fastapi",
+            engine=engine,
             llm=bool(llm_status()["enabled"]),
             model=llm_status()["model"],
             trace=state.trace,
@@ -79,12 +79,12 @@ class SupervisorGraph:
         return workers[state.route or "rag"](state)
 
     def _compile_langgraph(self):
-        if StateGraph is None or os.getenv("DEVFLOW_FORCE_FALLBACK_GRAPH") == "1":
+        if os.getenv("DEVFLOW_FORCE_FALLBACK_GRAPH") == "1":
             return None
-
         try:
             return self._build_langgraph()
-        except Exception:
+        except Exception as error:
+            self.graph_error = str(error)
             return None
 
     def _build_langgraph(self):
@@ -110,7 +110,7 @@ class SupervisorGraph:
         graph.add_node("task", task_node)
         graph.add_node("rag", rag_node)
         graph.add_node("analytics", analytics_node)
-        graph.set_entry_point("supervisor")
+        graph.add_edge(START, "supervisor")
         graph.add_conditional_edges(
             "supervisor",
             choose,

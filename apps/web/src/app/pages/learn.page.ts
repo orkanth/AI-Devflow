@@ -85,12 +85,12 @@ FastAPI  --LangGraph supervisor--  Task | RAG | Analytics
       body: 'Python is the ecosystem for LangChain, LangGraph, embeddings, and eval. Keep that isolated so Node stays the product API.',
     },
     {
-      title: 'RAG in one sentence',
-      body: 'Embed the question, retrieve top-k chunks from a vector index, then answer only from that context. Evaluate faithfulness.',
+      title: 'LangChain vs LangGraph',
+      body: 'LangChain is prompts, ChatOpenAI, parsers, and tools. LangGraph is the supervisor graph: START → route → task | rag | analytics → END. Read docs/LANGCHAIN_LANGGRAPH.md.',
     },
     {
-      title: 'Supervisor vs workers',
-      body: 'The supervisor classifies intent (GPT if OPENAI_API_KEY is set, else regex). Workers specialize: task (tools), RAG (vectors), analytics (SQL aggregates).',
+      title: 'RAG in this repo',
+      body: 'Split → embed → store. On ask: retrieve top-k Documents, then LCEL prompt | GPT | parser. Without a key, return the top chunk.',
     },
     {
       title: 'MCP',

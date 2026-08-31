@@ -42,6 +42,7 @@ export interface ChatResult {
   source: string;
   llm?: boolean;
   model?: string | null;
+  engine?: string;
   trace: Array<{
     agent: string;
     reason: string;

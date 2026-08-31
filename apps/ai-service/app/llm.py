@@ -5,7 +5,8 @@ import os
 import re
 from typing import Any
 
-import httpx
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
 
 DEFAULT_MODEL = "gpt-4o-mini"
 
@@ -28,52 +29,51 @@ def llm_status() -> dict[str, Any]:
         "enabled": enabled,
         "model": llm_model() if enabled else None,
         "provider": "openai" if enabled else None,
+        "library": "langchain_openai.ChatOpenAI",
     }
 
 
-def complete(system: str, user: str, *, json_mode: bool = False, timeout: float = 25.0) -> str:
-    """Call GPT (OpenAI-compatible Chat Completions). Raises if disabled or the API fails."""
+def chat_model(*, json_mode: bool = False) -> ChatOpenAI:
+    """LangChain chat model. All GPT calls go through this, not raw HTTP."""
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY is not set")
 
-    payload: dict[str, Any] = {
+    kwargs: dict[str, Any] = {
         "model": llm_model(),
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
+        "api_key": api_key,
         "temperature": 0.2,
+        "timeout": 25,
     }
+    base = llm_base_url()
+    if base != "https://api.openai.com/v1":
+        kwargs["base_url"] = base
+    model = ChatOpenAI(**kwargs)
     if json_mode:
-        payload["response_format"] = {"type": "json_object"}
+        return model.bind(response_format={"type": "json_object"})  # type: ignore[return-value]
+    return model
 
-    response = httpx.post(
-        f"{llm_base_url()}/chat/completions",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        json=payload,
-        timeout=timeout,
+
+def complete(system: str, user: str, *, json_mode: bool = False) -> str:
+    result = chat_model(json_mode=json_mode).invoke(
+        [SystemMessage(content=system), HumanMessage(content=user)]
     )
-    response.raise_for_status()
-    data = response.json()
-    return data["choices"][0]["message"]["content"].strip()
+    content = result.content
+    return content.strip() if isinstance(content, str) else str(content)
 
 
 def complete_json(system: str, user: str) -> dict[str, Any]:
-    raw = complete(system, user, json_mode=True)
-    return _parse_json(raw)
+    return _parse_json(complete(system, user, json_mode=True))
 
 
 def classify_route(message: str) -> str | None:
+    """LangChain LLM router used by the LangGraph supervisor node."""
     if not llm_enabled():
         return None
     try:
         data = complete_json(
             "You route a project-management assistant. "
-            "Return JSON {\"route\": \"task\"|\"rag\"|\"analytics\"}. "
+            'Return JSON {"route": "task"|"rag"|"analytics"}. '
             "task = create/edit/delete/assign users, projects, or tasks. "
             "analytics = counts, metrics, dashboards. "
             "rag = architecture/knowledge questions.",
@@ -87,30 +87,13 @@ def classify_route(message: str) -> str | None:
     return None
 
 
-def answer_with_context(question: str, contexts: list[dict[str, Any]]) -> str | None:
-    if not llm_enabled() or not contexts:
-        return None
-    packed = "\n\n".join(
-        f"[{i + 1}] {item['title']} (score {item.get('score', '?')})\n{item['content']}"
-        for i, item in enumerate(contexts)
-    )
-    try:
-        return complete(
-            "Answer using only the retrieved context. If the context is insufficient, say so. "
-            "Be concise. Mention the source title when you use a chunk.",
-            f"Question:\n{question}\n\nContext:\n{packed}",
-        )
-    except Exception:
-        return None
-
-
 def plan_workspace_action(message: str, catalog: dict[str, Any]) -> dict[str, Any] | None:
     if not llm_enabled():
         return None
     try:
         data = complete_json(
             "You plan a single workspace tool call against NestJS. "
-            "Return JSON {\"tool\": string, \"args\": object}. "
+            'Return JSON {"tool": string, "args": object}. '
             "Tools: create_task, update_task, delete_task, create_project, delete_project, "
             "create_user, delete_user. "
             "For assign, use update_task with task_id and assignee_id from the catalog. "

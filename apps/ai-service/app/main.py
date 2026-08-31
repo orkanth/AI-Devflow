@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.eval.evaluator import evaluate
 from app.graph.supervisor import SupervisorGraph
 from app.llm import llm_status
+from app.rag.pipeline import split_for_ingest
 from app.schemas import ChatRequest, ChatResponse, EvalRequest, EvalResponse
 from app.tools.mcp_registry import (
     MCPRegistry,
@@ -30,8 +31,8 @@ mcp.register(workspace_analytics_spec, lambda **kwargs: {"ok": True})
 
 app = FastAPI(
     title="DevFlow AI Service",
-    description="FastAPI + LangGraph supervisor with RAG, tool calling, MCP, and eval.",
-    version="0.1.0",
+    description="FastAPI + LangChain RAG + LangGraph supervisor (GPT when OPENAI_API_KEY is set).",
+    version="0.2.0",
 )
 app.add_middleware(
     CORSMiddleware,
@@ -49,6 +50,9 @@ def health() -> dict:
         "chunks": len(store.chunks),
         "mcp_tools": [spec.name for spec in mcp.list_tools()],
         "llm": llm_status(),
+        "langgraph": graph._compiled is not None,
+        "langgraph_error": graph.graph_error,
+        "rag": "langchain_lcel",
     }
 
 
@@ -59,13 +63,23 @@ def chat(payload: ChatRequest) -> ChatResponse:
 
 @app.post("/v1/knowledge/ingest")
 def ingest(payload: dict) -> dict:
-    chunk = store.ingest(
-        project_id=payload["project_id"],
-        title=payload["title"],
-        content=payload["content"],
-        source=payload.get("source", "manual"),
-    )
-    return {"id": chunk.id, "title": chunk.title, "embedding_dim": len(chunk.embedding)}
+    pieces = split_for_ingest(payload["title"], payload["content"])
+    chunks = [
+        store.ingest(
+            project_id=payload["project_id"],
+            title=payload["title"],
+            content=piece,
+            source=payload.get("source", "manual"),
+        )
+        for piece in pieces
+    ]
+    last = chunks[-1]
+    return {
+        "id": last.id,
+        "title": last.title,
+        "chunks": len(chunks),
+        "embedding_dim": len(last.embedding),
+    }
 
 
 @app.post("/v1/knowledge/search")

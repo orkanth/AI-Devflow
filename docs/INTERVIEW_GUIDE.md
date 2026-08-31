@@ -118,18 +118,22 @@ If the Python agent wrote tasks into its own SQLite file, you would have two sou
 
 **LangGraph** is an *orchestration runtime*: you define a graph of nodes and edges, persist state, branch, loop, and interrupt (human-in-the-loop).
 
+Read the beginner walkthrough mapped to this repo: [`docs/LANGCHAIN_LANGGRAPH.md`](LANGCHAIN_LANGGRAPH.md).
+
 **Supervisor pattern (this repo).**
 
 ```
 START → supervisor (route) → task | rag | analytics → END
 ```
 
-- **Supervisor** classifies intent with GPT when `OPENAI_API_KEY` is set; otherwise the same regex router.
-- **Task agent** performs side effects through tools (NestJS). GPT can plan `{tool, args}` from a catalog of ids.
-- **RAG agent** retrieves hashing-trick chunks, then GPT generates from that context (extractive fallback).
+Compiled as a real `StateGraph` in `apps/ai-service/app/graph/supervisor.py`.
+
+- **Supervisor** classifies with LangChain `ChatOpenAI` when `OPENAI_API_KEY` is set; otherwise the same regex router.
+- **Task agent** uses LangChain `bind_tools`; execution is HTTP to NestJS.
+- **RAG agent** is LCEL: retrieve `Document`s → `ChatPromptTemplate | ChatOpenAI | StrOutputParser`. Extractive fallback without a key.
 - **Analytics agent** reads aggregates, does not invent numbers.
 
-If `langgraph` is installed, `SupervisorGraph` compiles a real `StateGraph`. If not, it runs the same node functions. That is honest: the *architecture* is LangGraph even when the wheel is a Python function.
+If `DEVFLOW_FORCE_FALLBACK_GRAPH=1`, the same node functions run without compiling LangGraph (debug hatch).
 
 **Sound-bite.** “LangChain is Lego bricks. LangGraph is the instruction booklet that says which brick runs next and what state they share.”
 
@@ -164,7 +168,7 @@ NestJS (`apps/api/src/app/store/embeddings.ts`) and Python (`apps/ai-service/app
 3. **Generate:** prompt = question + chunks; answer grounded in context.
 4. **Evaluate:** was the answer faithful to those chunks?
 
-This repo does 1–4. Retrieval uses the hashing-trick index. Generation uses GPT when `OPENAI_API_KEY` is set; otherwise the agent returns the top chunk (extractive). Eval is still lexical Jaccard, not LLM-as-judge.
+This repo does 1–4. Retrieval uses the hashing-trick index (`Document` objects for LangChain). Generation is LCEL + GPT when `OPENAI_API_KEY` is set; otherwise the agent returns the top chunk (extractive). Eval is still lexical Jaccard, not LLM-as-judge. Ingest uses `RecursiveCharacterTextSplitter`.
 
 **Chunking (what to say next).** 200–500 tokens, overlap 10–20%, keep metadata (`projectId`, `source`) for filters.
 
