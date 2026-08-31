@@ -1,0 +1,31 @@
+<div class="sidebar" [class.sidebar--collapsed]="collapsed()">
+  <div class="sidebar__brand">
+    <mat-icon>hub</mat-icon>
+    @if (!collapsed()) {
+      <span>DevFlow</span>
+    }
+  </div>
+
+  <mat-nav-list class="sidebar__nav">
+    @for (item of navItems; track item.route) {
+      <a
+        mat-list-item
+        [routerLink]="item.route"
+        routerLinkActive="sidebar__link--active"
+        [routerLinkActiveOptions]="{ exact: item.exact === true }"
+        [matTooltip]="item.label"
+        matTooltipPosition="right"
+        [matTooltipDisabled]="!collapsed()"
+      >
+        <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
+        @if (!collapsed()) {
+          <span matListItemTitle>{{ item.label }}</span>
+        }
+      </a>
+    }
+  </mat-nav-list>
+
+  @if (!collapsed()) {
+    <p class="sidebar__stack">Nx · Material · pgvector</p>
+  }
+</div>
