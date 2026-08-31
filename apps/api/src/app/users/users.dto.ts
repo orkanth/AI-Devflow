@@ -8,8 +8,8 @@ export class CreateUserDto {
   @IsEmail()
   email!: string;
 
-  @IsIn(['engineer', 'pm', 'admin'])
-  role!: 'engineer' | 'pm' | 'admin';
+  @IsIn(['Developer', 'Manager', 'Admin'])
+  role!: 'Developer' | 'Manager' | 'Admin';
 }
 
 export class UpdateUserDto {
@@ -23,6 +23,6 @@ export class UpdateUserDto {
   email?: string;
 
   @IsOptional()
-  @IsIn(['engineer', 'pm', 'admin'])
-  role?: 'engineer' | 'pm' | 'admin';
+  @IsIn(['Developer', 'Manager', 'Admin'])
+  role!: 'Developer' | 'Manager' | 'Admin';
 }

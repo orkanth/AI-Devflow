@@ -93,14 +93,14 @@ export class MemoryStore {
       id: randomUUID(),
       name: 'Ada Lovelace',
       email: 'ada@devflow.ai',
-      role: 'engineer',
+      role: 'Developer',
       createdAt: now,
     };
     const grace: User = {
       id: randomUUID(),
       name: 'Grace Hopper',
       email: 'grace@devflow.ai',
-      role: 'pm',
+      role: 'Manager',
       createdAt: now,
     };
     this.users.push(ada, grace);

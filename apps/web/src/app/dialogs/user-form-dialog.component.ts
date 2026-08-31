@@ -40,9 +40,9 @@ export interface UserFormData {
       <mat-form-field appearance="outline">
         <mat-label>Role</mat-label>
         <mat-select formControlName="role">
-          <mat-option value="engineer">Engineer</mat-option>
-          <mat-option value="pm">PM</mat-option>
-          <mat-option value="admin">Admin</mat-option>
+          <mat-option value="Developer">Developer</mat-option>
+          <mat-option value="Manager">Manager</mat-option>
+          <mat-option value="Admin">Admin</mat-option>
         </mat-select>
       </mat-form-field>
     </mat-dialog-content>
@@ -69,7 +69,7 @@ export class UserFormDialogComponent implements OnInit {
   readonly form = this.fb.nonNullable.group({
     name: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
-    role: ['engineer', Validators.required],
+    role: ['Developer', Validators.required],
   });
 
   ngOnInit(): void {

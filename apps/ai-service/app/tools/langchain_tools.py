@@ -40,7 +40,7 @@ class CreateProjectInput(BaseModel):
 class CreateUserInput(BaseModel):
     name: str
     email: str = ""
-    role: str = "engineer"
+    role: str = "Developer"
 
 
 def nestjs_tools(nest: NestJsTools, default_project_id: str | None = None) -> list[StructuredTool]:
@@ -90,7 +90,7 @@ def nestjs_tools(nest: NestJsTools, default_project_id: str | None = None) -> li
     def delete_project(id: str) -> dict[str, Any]:
         return nest.delete_project(id)
 
-    def create_user(name: str, email: str = "", role: str = "engineer") -> dict[str, Any]:
+    def create_user(name: str, email: str = "", role: str = "Developer") -> dict[str, Any]:
         resolved = email or f"{name.lower().replace(' ', '.')}@devflow.ai"
         return nest.create_user(name=name, email=resolved, role=role)
 

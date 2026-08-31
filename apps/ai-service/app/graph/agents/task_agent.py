@@ -97,7 +97,7 @@ def _run_planned_tool(tools: NestJsTools, tool: str, args: dict, state: GraphSta
     if tool == "create_user":
         name = args.get("name") or "New teammate"
         email = args.get("email") or f"{name.lower().replace(' ', '.')}@devflow.ai"
-        return tools.create_user(name=name, email=email, role=args.get("role") or "engineer")
+        return tools.create_user(name=name, email=email, role=args.get("role") or "Developer")
     if tool == "delete_user":
         return tools.delete_user(args.get("user_id") or args.get("id") or "")
     return {"error": f"unknown tool {tool}"}
@@ -127,7 +127,7 @@ def _execute(intent: str, state: GraphState, tools: NestJsTools):
     if intent == "create_user":
         name = _quoted(message) or _after(message, r"user[:\s]+") or "New teammate"
         email = f"{name.lower().replace(' ', '.')}@devflow.ai"
-        result = tools.create_user(name=name, email=email, role="engineer")
+        result = tools.create_user(name=name, email=email, role="Developer")
         return "create_user", {"name": name, "email": email}, result, f'Created user "{name}".'
 
     if intent == "create_project":
