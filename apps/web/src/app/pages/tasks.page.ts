@@ -96,7 +96,12 @@ import { ViewToggleComponent } from '../ui/view-toggle.component';
             <button mat-icon-button type="button" (click)="openEdit(task); $event.stopPropagation()">
               <mat-icon>edit</mat-icon>
             </button>
-            <button mat-icon-button type="button" (click)="remove(task); $event.stopPropagation()">
+            <button
+              mat-icon-button
+              type="button"
+              class="df-action-delete"
+              (click)="remove(task); $event.stopPropagation()"
+            >
               <mat-icon>delete</mat-icon>
             </button>
           </div>
@@ -119,8 +124,7 @@ import { ViewToggleComponent } from '../ui/view-toggle.component';
       color: #64748b;
       font-size: 0.8125rem;
     }
-    .df-action-edit,
-    .tile-actions button {
+    .df-action-edit {
       color: #2563eb;
     }
     .df-action-delete {

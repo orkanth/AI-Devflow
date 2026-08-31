@@ -70,17 +70,20 @@ export interface StatusColumn {
   `,
   styles: `
     .board {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      display: flex;
       gap: 12px;
-      align-items: start;
+      align-items: stretch;
       min-height: 420px;
+      overflow-x: auto;
+      padding-bottom: 8px;
     }
     .column {
       background: #f1f5f9;
       border: 1px solid #e2e8f0;
       border-radius: 12px;
       min-height: 400px;
+      min-width: 240px;
+      flex: 1 1 220px;
       display: flex;
       flex-direction: column;
     }
