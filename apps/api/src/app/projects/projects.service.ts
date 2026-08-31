@@ -30,7 +30,8 @@ export class ProjectsService {
       name: dto.name,
       description: dto.description,
       ownerId: dto.ownerId,
-      status: 'active' as const,
+      status: dto.status ?? 'active',
+      priority: dto.priority ?? 'medium',
       createdAt: new Date().toISOString(),
     };
     this.store.projects.push(project);

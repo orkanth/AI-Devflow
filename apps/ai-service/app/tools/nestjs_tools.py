@@ -72,6 +72,8 @@ class NestJsTools:
             payload["description"] = fields["description"]
         if "status" in fields:
             payload["status"] = fields["status"]
+        if "priority" in fields:
+            payload["priority"] = fields["priority"]
         return self._send("PATCH", f"/api/projects/{project_id}", payload)
 
     def delete_project(self, project_id: str) -> dict[str, Any]:

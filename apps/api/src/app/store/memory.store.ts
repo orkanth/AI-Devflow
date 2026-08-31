@@ -111,6 +111,7 @@ export class MemoryStore {
       description: 'Interview prototype for an agentic engineering PM platform.',
       ownerId: grace.id,
       status: 'active',
+      priority: 'high',
       createdAt: now,
     };
     const ragLab: Project = {
@@ -118,7 +119,8 @@ export class MemoryStore {
       name: 'RAG Lab',
       description: 'Knowledge retrieval experiments with pgvector-style search.',
       ownerId: ada.id,
-      status: 'active',
+      status: 'planning',
+      priority: 'medium',
       createdAt: now,
     };
     this.projects.push(platform, ragLab);

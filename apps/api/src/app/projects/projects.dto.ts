@@ -10,6 +10,14 @@ export class CreateProjectDto {
 
   @IsUUID()
   ownerId!: string;
+
+  @IsOptional()
+  @IsIn(['planning', 'active', 'on_hold', 'completed', 'archived'])
+  status?: 'planning' | 'active' | 'on_hold' | 'completed' | 'archived';
+
+  @IsOptional()
+  @IsIn(['low', 'medium', 'high'])
+  priority?: 'low' | 'medium' | 'high';
 }
 
 export class UpdateProjectDto {
@@ -23,6 +31,10 @@ export class UpdateProjectDto {
   description?: string;
 
   @IsOptional()
-  @IsIn(['active', 'archived'])
-  status?: 'active' | 'archived';
+  @IsIn(['planning', 'active', 'on_hold', 'completed', 'archived'])
+  status?: 'planning' | 'active' | 'on_hold' | 'completed' | 'archived';
+
+  @IsOptional()
+  @IsIn(['low', 'medium', 'high'])
+  priority?: 'low' | 'medium' | 'high';
 }

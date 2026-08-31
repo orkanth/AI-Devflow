@@ -49,8 +49,19 @@ export interface ProjectFormData {
       <mat-form-field appearance="outline">
         <mat-label>Status</mat-label>
         <mat-select formControlName="status">
+          <mat-option value="planning">Planning</mat-option>
           <mat-option value="active">Active</mat-option>
+          <mat-option value="on_hold">On hold</mat-option>
+          <mat-option value="completed">Completed</mat-option>
           <mat-option value="archived">Archived</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Priority</mat-label>
+        <mat-select formControlName="priority">
+          <mat-option value="low">Low</mat-option>
+          <mat-option value="medium">Medium</mat-option>
+          <mat-option value="high">High</mat-option>
         </mat-select>
       </mat-form-field>
     </mat-dialog-content>
@@ -78,6 +89,7 @@ export class ProjectFormDialogComponent implements OnInit {
     description: ['', Validators.required],
     ownerId: ['', Validators.required],
     status: ['active'],
+    priority: ['medium'],
   });
 
   ngOnInit(): void {
@@ -87,6 +99,7 @@ export class ProjectFormDialogComponent implements OnInit {
       name: this.data.project?.name ?? '',
       description: this.data.project?.description ?? '',
       status: this.data.project?.status ?? 'active',
+      priority: this.data.project?.priority ?? 'medium',
     });
   }
 

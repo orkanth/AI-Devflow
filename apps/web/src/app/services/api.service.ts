@@ -15,6 +15,7 @@ export interface Project {
   description: string;
   ownerId: string;
   status: string;
+  priority: string;
 }
 
 export interface Task {
@@ -95,7 +96,13 @@ export class ApiService {
     return this.http.get<Project[]>(`${this.base}/projects`);
   }
 
-  createProject(body: { name: string; description: string; ownerId: string }) {
+  createProject(body: {
+    name: string;
+    description: string;
+    ownerId: string;
+    status?: string;
+    priority?: string;
+  }) {
     return this.http.post<Project>(`${this.base}/projects`, body);
   }
 
