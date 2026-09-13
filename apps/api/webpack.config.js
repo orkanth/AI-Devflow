@@ -1,5 +1,6 @@
 const { NxAppWebpackPlugin } = require('@nx/webpack/app-plugin');
 const { join } = require('path');
+const webpack = require('webpack');
 
 module.exports = {
   output: {
@@ -15,11 +16,45 @@ module.exports = {
       compiler: 'tsc',
       main: './src/main.ts',
       tsConfig: './tsconfig.app.json',
-      assets: ["./src/assets"],
+      assets: ['./src/assets'],
       optimization: false,
       outputHashing: 'none',
       generatePackageJson: true,
       sourceMap: true,
-    })
+    }),
+    new webpack.IgnorePlugin({
+      checkResource(resource) {
+        const lazyImports = [
+          '@nestjs/microservices',
+          '@nestjs/websockets',
+          '@google-cloud/spanner',
+          '@sap/hana-client',
+          'better-sqlite3',
+          'hdb-pool',
+          'ioredis',
+          'mongodb',
+          'mssql',
+          'mysql',
+          'mysql2',
+          'oracledb',
+          'pg-native',
+          'pg-query-stream',
+          'react-native-sqlite-storage',
+          'redis',
+          'sqlite3',
+          'sql.js',
+          'typeorm-aurora-data-api-pg',
+        ];
+        if (!lazyImports.includes(resource)) {
+          return false;
+        }
+        try {
+          require.resolve(resource);
+        } catch (_err) {
+          return true;
+        }
+        return false;
+      },
+    }),
   ],
 };

@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
-  role TEXT NOT NULL CHECK (role IN ('engineer', 'pm', 'admin')),
+  role TEXT NOT NULL CHECK (role IN ('Developer', 'Manager', 'Admin')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

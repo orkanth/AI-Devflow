@@ -25,4 +25,5 @@ export class UpdateUserDto {
   @IsOptional()
   @IsIn(['Developer', 'Manager', 'Admin'])
   role!: 'Developer' | 'Manager' | 'Admin';
+  
 }
