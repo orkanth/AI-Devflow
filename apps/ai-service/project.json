@@ -1,0 +1,31 @@
+{
+  "name": "ai-service",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/ai-service/app",
+  "tags": ["scope:ai", "lang:python"],
+  "targets": {
+    "serve": {
+      "continuous": true,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+        "cwd": "apps/ai-service"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python3 -m pytest apps/ai-service/tests -q",
+        "cwd": "{workspaceRoot}"
+      }
+    },
+    "install": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python3 -m pip install -r apps/ai-service/requirements.txt",
+        "cwd": "{workspaceRoot}"
+      }
+    }
+  }
+}
