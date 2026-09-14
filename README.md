@@ -111,3 +111,7 @@ Read [`docs/INTERVIEW_GUIDE.md`](docs/INTERVIEW_GUIDE.md) and [`docs/LANGCHAIN_L
 ## Node note
 
 Angular 22 wants Node `>= 22.22`. If `nx serve web` fails on an older 22.x, upgrade Node or use the NestJS/FastAPI APIs directly (`http://localhost:3333/api`, `http://localhost:8000/docs`).
+
+
+## create component in FE
+npx nx g @nx/angular:component apps/web/src/app/pages/users/users --skip-tests
