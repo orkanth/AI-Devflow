@@ -35,6 +35,7 @@ import { ViewToggleComponent } from '../ui/view-toggle.component';
     table {
       width: 100%;
       background: #fff;
+      
     }
     .cell-desc,
     .tile-desc {
