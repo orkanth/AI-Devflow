@@ -75,6 +75,10 @@
   background: #d97706;
 }
 
+.legend-item--blocked .legend-dot {
+  background: #dc2626;
+}
+
 .legend-item--done .legend-dot {
   background: #16a34a;
 }

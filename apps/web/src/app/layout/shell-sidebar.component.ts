@@ -30,6 +30,7 @@ export class ShellSidebarComponent {
   readonly navItems: NavItem[] = [
     { label: 'Dashboard', route: '/', icon: 'dashboard', exact: true },
     { label: 'Projects', route: '/projects', icon: 'folder' },
+    { label: 'TDD upload', route: '/tdd-upload', icon: 'upload_file' },
     { label: 'Tasks', route: '/tasks', icon: 'assignment' },
     { label: 'Users', route: '/users', icon: 'group' },
     { label: 'Profile', route: '/profile', icon: 'person' },

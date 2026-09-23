@@ -1,24 +1,28 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
-import {MatGridListModule} from '@angular/material/grid-list';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { RouterLink } from '@angular/router';
-import { ApiService, Task, User, WorkspaceStats } from '../../services/api.service';
-import { SessionService } from '../../services/session.service';  
+import { forkJoin } from 'rxjs';
+import {
+  DashboardMyTaskChart,
+  MyTasksChartStats,
+} from '../../components/dashboard-myt-task-chart/dashboard-my-task-chart';
 import { DashboardStatCardComponent } from '../../components/dashboard-stat-card/dashboard-stat-card';
+import { ApiService, Project, Task, User, WorkspaceStats } from '../../services/api.service';
+import { SessionService } from '../../services/session.service';
 
 @Component({
   selector: 'df-dashboard',
- imports: [
+  imports: [
     MatCardModule,
     MatIconModule,
-    MatListModule, 
-    MatGridListModule,
+    MatListModule,
     MatProgressBarModule,
     RouterLink,
     DashboardStatCardComponent,
+    DashboardMyTaskChart,
   ],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
@@ -27,6 +31,9 @@ export class DashboardPage {
   private readonly api = inject(ApiService);
   protected readonly session = inject(SessionService);
   protected readonly users = signal<User[]>([]);
+  protected readonly projects = signal<Project[]>([]);
+  protected readonly tasks = signal<Task[]>([]);
+  protected readonly chartProjectId = signal('');
   protected readonly cards = signal<
     Array<{
       label: string;
@@ -38,6 +45,16 @@ export class DashboardPage {
   protected readonly error = signal(false);
   protected readonly loading = signal(true);
 
+  protected readonly chartTaskStats = computed<MyTasksChartStats>(() => {
+    const projectId = this.chartProjectId();
+    const scoped = this.tasks().filter((task) => !projectId || task.projectId === projectId);
+    const todo = scoped.filter((task) => task.status === 'todo').length;
+    const in_progress = scoped.filter((task) => task.status === 'in_progress').length;
+    const done = scoped.filter((task) => task.status === 'done').length;
+    const blocked = scoped.filter((task) => task.status === 'blocked').length;
+    return { todo, in_progress, done, blocked, total: scoped.length };
+  });
+
   constructor() {
     this.api.users().subscribe({
       next: (users) => {
@@ -47,12 +64,16 @@ export class DashboardPage {
         if (!current || !users.some((user) => user.id === current)) {
           this.session.setUser(users[0]?.id ?? null);
         }
-        this.api.health().subscribe({
-          next: (payload) => {
-            this.api.tasks().subscribe((tasks) => {
-              this.setStats(payload.stats, tasks);
-              this.loading.set(false);
-            });
+        forkJoin({
+          health: this.api.health(),
+          tasks: this.api.tasks(),
+          projects: this.api.projects(),
+        }).subscribe({
+          next: ({ health, tasks, projects }) => {
+            this.tasks.set(tasks);
+            this.projects.set(projects);
+            this.setStats(health.stats, tasks);
+            this.loading.set(false);
           },
           error: () => {
             this.error.set(true);

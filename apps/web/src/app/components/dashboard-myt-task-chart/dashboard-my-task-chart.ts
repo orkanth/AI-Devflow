@@ -11,14 +11,16 @@ import {
 } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatSelectModule } from '@angular/material/select'; 
+import { MatSelectModule } from '@angular/material/select';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
+import { Project } from '../../services/api.service';
 
 Chart.register(...registerables);
 export interface MyTasksChartStats {
   todo: number;
   in_progress: number;
   done: number;
+  blocked: number;
   total: number;
 }
 @Component({
@@ -79,12 +81,14 @@ export class DashboardMyTaskChart implements AfterViewInit, OnDestroy {
     }
 
     const stats = this.stats();
-    const labels = ['To Do', 'In Progress', 'Done'];
-    const data = [stats.todo, stats.in_progress, stats.done];
-    const colors = ['#2563eb', '#d97706', '#16a34a'];
+    const labels = ['To Do', 'In Progress', 'Blocked', 'Done'];
+    const data = [stats.todo, stats.in_progress, stats.blocked, stats.done];
+    const colors = ['#2563eb', '#d97706', '#dc2626', '#16a34a'];
 
     if (this.chart) {
+      this.chart.data.labels = labels;
       this.chart.data.datasets[0].data = data;
+      this.chart.data.datasets[0].backgroundColor = colors;
       this.chart.update();
       return;
     }

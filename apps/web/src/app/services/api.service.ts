@@ -138,11 +138,12 @@ export class ApiService {
     return this.http.delete(`${this.base}/tasks/${id}`);
   }
 
-  knowledge() {
-    return this.http.get<KnowledgeDoc[]>(`${this.base}/knowledge`);
+  knowledge(projectId?: string) {
+    const params = projectId ? `?projectId=${projectId}` : '';
+    return this.http.get<KnowledgeDoc[]>(`${this.base}/knowledge${params}`);
   }
 
-  ingest(body: { projectId: string; title: string; content: string }) {
+  ingest(body: { projectId: string; title: string; content: string; source?: string }) {
     return this.http.post(`${this.base}/knowledge/ingest`, body);
   }
 

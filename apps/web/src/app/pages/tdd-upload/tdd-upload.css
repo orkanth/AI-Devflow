@@ -1,0 +1,23 @@
+.project-filter {
+  width: min(360px, 100%);
+  margin-bottom: 8px;
+}
+
+table {
+  width: 100%;
+  background: #fff;
+}
+
+.cell-desc {
+  color: #64748b;
+  font-size: 0.8125rem;
+  max-width: 480px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.empty {
+  color: #64748b;
+  margin: 24px 0;
+}

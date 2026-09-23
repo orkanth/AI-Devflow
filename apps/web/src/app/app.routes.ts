@@ -8,6 +8,7 @@ import { LearnPage } from './pages/learn.page';
 import { UsersPage } from './pages/users/users';
 import { ProjectsPage } from './pages/projects/projects';
 import { DashboardPage } from './pages/dashboard/dashboard';
+import { TddUploadPage } from './pages/tdd-upload/tdd-upload';
 
 export const appRoutes: Route[] = [
   {
@@ -16,6 +17,7 @@ export const appRoutes: Route[] = [
     children: [
       { path: '', component: DashboardPage },
       { path: 'projects', component: ProjectsPage },
+      { path: 'tdd-upload', component: TddUploadPage },
       { path: 'tasks', component: TasksPage },
       { path: 'users', component: UsersPage },
       { path: 'profile', component: ProfilePage },
