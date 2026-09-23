@@ -5,6 +5,9 @@ dist
 tmp
 out-tsc
 
+#Upload Docs
+uploads
+
 # dependencies
 node_modules
 

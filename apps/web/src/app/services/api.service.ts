@@ -37,6 +37,18 @@ export interface KnowledgeDoc {
   embeddingDim: number;
 }
 
+export interface DocumentItem {
+  id: string;
+  projectId: string;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  filePath: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ChatResult {
   answer: string;
   route: string;
@@ -76,6 +88,7 @@ export class ApiService {
     return this.http.get<{ name: string; stats: WorkspaceStats }>(this.base);
   }
 
+  // --- Users ---
   users() {
     return this.http.get<User[]>(`${this.base}/users`);
   }
@@ -92,6 +105,7 @@ export class ApiService {
     return this.http.delete(`${this.base}/users/${id}`);
   }
 
+  // --- Projects ---
   projects() {
     return this.http.get<Project[]>(`${this.base}/projects`);
   }
@@ -114,6 +128,7 @@ export class ApiService {
     return this.http.delete(`${this.base}/projects/${id}`);
   }
 
+  // --- Tasks ---
   tasks(projectId?: string) {
     const params = projectId ? `?projectId=${projectId}` : '';
     return this.http.get<Task[]>(`${this.base}/tasks${params}`);
@@ -138,6 +153,26 @@ export class ApiService {
     return this.http.delete(`${this.base}/tasks/${id}`);
   }
 
+  // --- TDD Documents ---
+  documents(projectId?: string): Observable<DocumentItem[]> {
+    const params = projectId ? `?projectId=${projectId}` : '';
+    return this.http.get<DocumentItem[]>(`${this.base}/documents${params}`);
+  }
+
+  uploadDocument(projectId: string, formData: FormData): Observable<DocumentItem> {
+    return this.http.post<DocumentItem>(
+      `${this.base}/knowledge/upload?projectId=${projectId}`,
+      formData
+    );
+  }
+
+  deleteDocument(id: string): Observable<{ id: string; deleted: boolean }> {
+    return this.http.delete<{ id: string; deleted: boolean }>(
+      `${this.base}/documents/${id}`
+    );
+  }
+
+  // --- Knowledge / RAG ---
   knowledge(projectId?: string) {
     const params = projectId ? `?projectId=${projectId}` : '';
     return this.http.get<KnowledgeDoc[]>(`${this.base}/knowledge${params}`);
@@ -155,6 +190,7 @@ export class ApiService {
     return this.http.post(`${this.base}/knowledge/search`, { query });
   }
 
+  // --- AI & Analytics ---
   analytics() {
     return this.http.get<WorkspaceStats>(`${this.base}/ai/analytics`);
   }

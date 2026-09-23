@@ -10,6 +10,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { ConfirmDialogComponent } from '../../dialogs/confirm-dialog.component';
 import { TddUploadDialogComponent } from '../../dialogs/tdd-upload-dialog.component';
 import { ApiService, KnowledgeDoc, Project } from '../../services/api.service';
+import { DatePipe } from '@angular/common';
 
 @Component({
   selector: 'df-tdd-upload',
@@ -21,6 +22,7 @@ import { ApiService, KnowledgeDoc, Project } from '../../services/api.service';
     MatSelectModule,
     MatTableModule,
     MatTooltipModule,
+    DatePipe
   ],
   templateUrl: './tdd-upload.html',
   styleUrl: './tdd-upload.css',
@@ -31,7 +33,7 @@ export class TddUploadPage {
   protected readonly projects = signal<Project[]>([]);
   protected readonly docs = signal<KnowledgeDoc[]>([]);
   protected readonly projectId = signal('');
-  protected readonly columns = ['title', 'source', 'preview', 'actions'];
+  protected readonly columns = ['title', 'source', 'actions'];
 
   constructor() {
     this.api.projects().subscribe((projects) => {
@@ -52,19 +54,37 @@ export class TddUploadPage {
     this.reload();
   }
 
-  openUpload() {
-    this.dialog
-      .open(TddUploadDialogComponent, {
-        data: { projects: this.projects(), projectId: this.projectId() },
-      })
-      .afterClosed()
-      .subscribe((value) => {
-        if (!value) return;
-        this.api.ingest(value).subscribe(() => {
-          this.projectId.set(value.projectId);
+  openUpload(): void {
+    const dialogRef = this.dialog.open(TddUploadDialogComponent, {
+      data: {
+        projects: this.projects(),
+        projectId: this.projectId(),
+      },
+    });
+
+    dialogRef.afterClosed().subscribe((result) => {
+      if (!result || !result.file) {
+        return;
+      }
+
+      // 1. Pack the file into FormData
+      const formData = new FormData();
+      if (result.title) {
+        formData.append('title', result.title);
+      }
+      formData.append('file', result.file);
+
+      // 2. Call the upload method
+      this.api.uploadDocument(result.projectId, formData).subscribe({
+        next: () => {
+          // 3. Reload document list
           this.reload();
-        });
+        },
+        error: (err) => {
+          console.error('Failed to upload file:', err);
+        },
       });
+    });
   }
 
   remove(doc: KnowledgeDoc) {

@@ -28,20 +28,19 @@
     <ng-container matColumnDef="title">
       <th mat-header-cell *matHeaderCellDef>File</th>
       <td mat-cell *matCellDef="let doc">
-        <strong>{{ doc.title }}</strong>
-        <div class="cell-desc">{{ projectName(doc.projectId) }}</div>
+        <strong>{{ doc.title }}</strong> 
       </td>
     </ng-container>
     <ng-container matColumnDef="source">
-      <th mat-header-cell *matHeaderCellDef>Source</th>
-      <td mat-cell *matCellDef="let doc">{{ doc.source }}</td>
+      <th mat-header-cell *matHeaderCellDef>Date</th>
+      <td mat-cell *matCellDef="let doc">{{ doc.createdAt | date:'dd - MM  - yyyy' }}</td>
     </ng-container>
-    <ng-container matColumnDef="preview">
+    <!-- <ng-container matColumnDef="preview">
       <th mat-header-cell *matHeaderCellDef>Preview</th>
       <td mat-cell *matCellDef="let doc">
         <div class="cell-desc">{{ doc.content }}</div>
       </td>
-    </ng-container>
+    </ng-container> -->
     <ng-container matColumnDef="actions">
       <th mat-header-cell *matHeaderCellDef></th>
       <td mat-cell *matCellDef="let doc">

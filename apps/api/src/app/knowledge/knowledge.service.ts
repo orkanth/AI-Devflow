@@ -1,66 +1,74 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { randomUUID } from 'crypto';
-import { ProjectsService } from '../projects/projects.service';
-import { embed } from '../store/embeddings';
-import { MemoryStore } from '../store/memory.store';
-import { IngestKnowledgeDto } from './knowledge.dto';
+import { Injectable, NotFoundException } from '@nestjs/common'; 
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import * as fs from 'fs';
+import { ProjectsService } from '../projects/projects.service'; 
+import { MemoryStore } from '../store/memory.store'; 
+import { DocumentEntity } from './knowledge.entity';  
 
 @Injectable()
 export class KnowledgeService {
   constructor(
     private readonly store: MemoryStore,
-    private readonly projects: ProjectsService
+    @InjectRepository(DocumentEntity)
+    private readonly docRepo: Repository<DocumentEntity>,
+    private readonly projectsService: ProjectsService
   ) {}
 
-  findAll(projectId?: string) {
-    const chunks = projectId
-      ? this.store.chunks.filter((chunk) => chunk.projectId === projectId)
-      : this.store.chunks;
-    return chunks.map(({ embedding, ...rest }) => ({
-      ...rest,
-      embeddingDim: embedding.length,
-    }));
+  async findAll(projectId?: string): Promise<DocumentEntity[]> {
+    if (projectId) {
+      await this.projectsService.findOne(projectId);
+      return this.docRepo.find({
+        where: { projectId },
+        order: { createdAt: 'DESC' },
+      });
+    }
+
+    return this.docRepo.find({
+      order: { createdAt: 'DESC' },
+    });
   }
 
-  ingest(dto: IngestKnowledgeDto) {
-    this.projects.findOne(dto.projectId);
-    const chunk = {
-      id: randomUUID(),
-      projectId: dto.projectId,
-      title: dto.title,
-      content: dto.content,
-      source: dto.source ?? 'manual',
-      embedding: embed(`${dto.title} ${dto.content}`),
-      createdAt: new Date().toISOString(),
-    };
-    this.store.chunks.push(chunk);
-    const { embedding, ...rest } = chunk;
-    return { ...rest, embeddingDim: embedding.length };
-  }
-
-  findOne(id: string) {
-    const chunk = this.store.chunks.find((item) => item.id === id);
-    if (!chunk) {
+  async findOne(id: string): Promise<DocumentEntity> {
+    const doc = await this.docRepo.findOne({ where: { id } });
+    if (!doc) {
       throw new NotFoundException(`Document ${id} not found`);
     }
-    const { embedding, ...rest } = chunk;
-    return { ...rest, embeddingDim: embedding.length };
+    return doc;
   }
 
-  remove(id: string) {
-    this.findOne(id);
-    this.store.removeChunk(id);
+  async saveDocument(
+    projectId: string,
+    file: Express.Multer.File,
+    title?: string, // 1. Added title parameter here
+  ): Promise<DocumentEntity> {
+    await this.projectsService.findOne(projectId);
+
+    const doc = this.docRepo.create({
+      projectId,
+      title: title || file.originalname.replace(/\.[^.]+$/, ''), // 2. Uses file.originalname
+      filename: file.filename,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      size: file.size,
+      filePath: file.path,
+    });
+
+    return this.docRepo.save(doc);
+  }
+
+  async remove(id: string): Promise<{ id: string; deleted: boolean }> {
+    const doc = await this.findOne(id);
+
+    if (fs.existsSync(doc.filePath)) {
+      try {
+        fs.unlinkSync(doc.filePath);
+      } catch (err) {
+        console.error(`Failed to delete local file: ${doc.filePath}`, err);
+      }
+    }
+
+    await this.docRepo.remove(doc);
     return { id, deleted: true };
-  }
-
-  search(query: string, projectId?: string, k = 4) {
-    return this.store.searchKnowledge(query, projectId, k).map((hit) => ({
-      id: hit.chunk.id,
-      projectId: hit.chunk.projectId,
-      title: hit.chunk.title,
-      content: hit.chunk.content,
-      source: hit.chunk.source,
-      score: Number(hit.score.toFixed(4)),
-    }));
   }
 }

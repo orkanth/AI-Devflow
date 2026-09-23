@@ -9,6 +9,7 @@ import {
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatIconModule } from '@angular/material/icon';
 import { Project } from '../services/api.service';
 
 export interface TddUploadDialogData {
@@ -16,11 +17,10 @@ export interface TddUploadDialogData {
   projectId?: string;
 }
 
-export interface TddUploadResult {
+export interface TddUploadDialogResult {
   projectId: string;
   title: string;
-  content: string;
-  source: string;
+  file: File;
 }
 
 @Component({
@@ -33,9 +33,10 @@ export interface TddUploadResult {
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
+    MatIconModule,
   ],
   template: `
-    <h2 mat-dialog-title>Upload TDD document</h2>
+    <h2 mat-dialog-title>Upload TDD Document</h2>
     <mat-dialog-content [formGroup]="form" class="dialog-form">
       <mat-form-field appearance="outline">
         <mat-label>Project</mat-label>
@@ -45,21 +46,47 @@ export interface TddUploadResult {
           }
         </mat-select>
       </mat-form-field>
-      <label class="file-label">
-        <span>File</span>
-        <input type="file" (change)="onFile($event)" />
-      </label>
-      @if (fileName) {
-        <p class="file-name">{{ fileName }}</p>
-      }
+
+      <div class="file-drop-zone">
+        <input
+          #fileInput
+          type="file"
+          accept=".pdf,.md,.markdown,.txt,.docx"
+          (change)="onFile($event)"
+          style="display: none"
+        />
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="fileInput.click()"
+        >
+          <mat-icon>attach_file</mat-icon>
+          Choose File (.pdf, .md, .txt, .docx)
+        </button>
+
+        @if (selectedFile) {
+          <div class="file-info">
+            <span class="file-name">{{ selectedFile.name }}</span>
+            <span class="file-size">({{ (selectedFile.size / 1024).toFixed(1) }} KB)</span>
+          </div>
+        }
+      </div>
+
       <mat-form-field appearance="outline">
-        <mat-label>Title</mat-label>
-        <input matInput formControlName="title" />
+        <mat-label>Title / Description</mat-label>
+        <input matInput formControlName="title" placeholder="e.g. Auth Architecture Spec" />
       </mat-form-field>
     </mat-dialog-content>
+
     <mat-dialog-actions align="end">
       <button mat-button type="button" (click)="dialogRef.close()">Cancel</button>
-      <button mat-flat-button color="primary" type="button" [disabled]="form.invalid || !fileName" (click)="submit()">
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        [disabled]="form.invalid || !selectedFile"
+        (click)="submit()"
+      >
         Upload
       </button>
     </mat-dialog-actions>
@@ -68,70 +95,70 @@ export interface TddUploadResult {
     .dialog-form {
       display: flex;
       flex-direction: column;
-      min-width: 380px;
-      padding-top: 8px;
+      gap: 8px;
+      min-width: 420px;
+      padding-top: 12px;
     }
-    .file-label {
+    .file-drop-zone {
       display: flex;
       flex-direction: column;
       gap: 6px;
       margin-bottom: 12px;
-      font-size: 0.75rem;
-      color: #64748b;
+    }
+    .file-info {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+      color: #334155;
+      margin-top: 4px;
     }
     .file-name {
-      margin: 0 0 8px;
-      font-size: 0.875rem;
-      color: #0f172a;
+      font-weight: 500;
+    }
+    .file-size {
+      color: #64748b;
     }
   `,
 })
 export class TddUploadDialogComponent {
-  readonly dialogRef = inject(MatDialogRef<TddUploadDialogComponent, TddUploadResult>);
+  readonly dialogRef = inject(MatDialogRef<TddUploadDialogComponent, TddUploadDialogResult>);
   readonly data = inject<TddUploadDialogData>(MAT_DIALOG_DATA);
   private readonly fb = inject(FormBuilder);
-  protected fileName = '';
-  private fileContent = '';
+
+  protected selectedFile: File | null = null;
 
   readonly form = this.fb.nonNullable.group({
     projectId: [this.data.projectId || this.data.projects[0]?.id || '', Validators.required],
     title: ['', Validators.required],
   });
 
-  async onFile(event: Event): Promise<void> {
+  onFile(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) {
       return;
     }
-    this.fileName = file.name;
-    const raw = await file.text();
-    this.fileContent = this.normalizeContent(file, raw);
+    this.selectedFile = file;
+
+    // Default the title input to the clean file name if currently empty
     if (!this.form.controls.title.value) {
-      this.form.controls.title.setValue(file.name.replace(/\.[^.]+$/, '') || file.name);
+      const cleanName = file.name.replace(/\.[^.]+$/, '');
+      this.form.controls.title.setValue(cleanName);
     }
   }
 
   submit(): void {
-    if (this.form.invalid || !this.fileContent) {
+    if (this.form.invalid || !this.selectedFile) {
       this.form.markAllAsTouched();
       return;
     }
+
     const value = this.form.getRawValue();
     this.dialogRef.close({
       projectId: value.projectId,
       title: value.title,
-      content: this.fileContent,
-      source: this.fileName ? `tdd:${this.fileName}` : 'tdd-upload',
+      file: this.selectedFile,
     });
-  }
-
-  private normalizeContent(file: File, raw: string): string {
-    const printable = raw.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').trim();
-    const body =
-      printable.length >= 10
-        ? printable.slice(0, 20_000)
-        : `Uploaded TDD document "${file.name}" (${file.size} bytes, ${file.type || 'unknown type'}).`;
-    return body.length >= 10 ? body : `${body} document`;
   }
 }
