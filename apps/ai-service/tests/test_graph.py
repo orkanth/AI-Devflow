@@ -33,6 +33,12 @@ class SilentNest(NestJsTools):
     def analytics(self) -> dict:
         return {"users": 2, "projects": 2, "tasks": 4}
 
+    def list_knowledge(self, project_id: str | None = None) -> list[dict]:
+        return [{"id": "d1", "title": "Auth flow", "originalName": "auth.md", "projectId": project_id}]
+
+    def create_project(self, name: str, description: str, owner_id: str) -> dict:
+        return {"id": "p2", "name": name, "description": description, "ownerId": owner_id}
+
 
 def test_embeddings_are_deterministic_and_ranked():
     query = embed("langgraph supervisor routes rag agent")
@@ -44,6 +50,7 @@ def test_embeddings_are_deterministic_and_ranked():
 
 def test_supervisor_routes_intents():
     assert route_message("create task: Write ADR") == "task"
+    assert route_message("Create tasks from TDD documents") == "task"
     assert route_message("assign task to Ada Lovelace") == "task"
     assert route_message("delete project RAG Lab") == "task"
     assert route_message("how many tasks are open?") == "analytics"
@@ -80,6 +87,23 @@ def test_task_agent_tool_call():
     result = graph.invoke(ChatRequest(message="create task: Document MCP registry", project_id="p1"))
     assert result.route == "task"
     assert result.trace[0].tool_calls[0].tool == "create_task"
+
+
+def test_task_agent_creates_project():
+    graph = SupervisorGraph(default_store(), tools=SilentNest())
+    result = graph.invoke(ChatRequest(message='Create project "Mobile app rollout"'))
+    assert result.route == "task"
+    assert result.trace[0].tool_calls[0].tool == "create_project"
+
+
+def test_task_agent_from_tdd():
+    graph = SupervisorGraph(default_store(), tools=SilentNest())
+    result = graph.invoke(
+        ChatRequest(message="Create tasks from TDD documents for this project", project_id="p1")
+    )
+    assert result.route == "task"
+    assert result.trace[0].tool_calls[0].tool == "create_tasks_from_tdd"
+    assert "Auth flow" in result.answer
 
 
 def test_task_agent_assigns():

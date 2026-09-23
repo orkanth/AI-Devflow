@@ -1,0 +1,129 @@
+<header class="page-header">
+  <div>
+    <h1 class="page-title">Agent prompt</h1>
+    <p class="page-subtitle">
+      Run example prompts to create a task, update a task, create a project, or
+      generate tasks from uploaded TDD documents. Progress updates while the agent works.
+      @if (aiStatus()?.llm?.enabled) {
+        GPT is on ({{ aiStatus()?.llm?.model }}).
+      } @else {
+        GPT is optional; the supervisor still routes and calls NestJS.
+      }
+    </p>
+  </div>
+</header>
+
+<section class="examples">
+  @for (example of examples; track example.id) {
+    <button
+      type="button"
+      class="example"
+      [class.example--selected]="selectedExample() === example.id"
+      (click)="useExample(example)"
+    >
+      <mat-icon>{{ example.icon }}</mat-icon>
+      <span class="example__title">{{ example.title }}</span>
+      <span class="example__desc">{{ example.description }}</span>
+    </button>
+  }
+</section>
+
+<mat-card class="form-card">
+  <mat-card-content>
+    <form class="stack" (ngSubmit)="send()">
+      <mat-form-field appearance="outline">
+        <mat-label>Project</mat-label>
+        <mat-select [(ngModel)]="projectId" name="projectId">
+          <mat-option value="">Workspace default</mat-option>
+          @for (project of projects(); track project.id) {
+            <mat-option [value]="project.id">{{ project.name }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Prompt</mat-label>
+        <textarea
+          matInput
+          rows="4"
+          [(ngModel)]="message"
+          name="message"
+          placeholder='Example: Create task "Write agent prompt notes"'
+        ></textarea>
+      </mat-form-field>
+      <button
+        mat-flat-button
+        color="primary"
+        type="submit"
+        [disabled]="busy() || !message.trim()"
+      >
+        <mat-icon>smart_toy</mat-icon>
+        Run agent
+      </button>
+    </form>
+  </mat-card-content>
+</mat-card>
+
+@if (busy()) {
+  <mat-progress-bar mode="indeterminate" />
+}
+
+@if (steps().length) {
+  <mat-card class="form-card">
+    <mat-card-header>
+      <mat-card-title>Progress</mat-card-title>
+      <mat-card-subtitle>
+        @if (busy()) {
+          Agent is working…
+        } @else if (error()) {
+          Stopped with an error
+        } @else {
+          Complete
+        }
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <ol class="progress">
+        @for (step of steps(); track step.id) {
+          <li class="progress__item" [attr.data-status]="step.status">
+            <mat-icon class="progress__icon">{{ stepIcon(step.status) }}</mat-icon>
+            <div>
+              <p class="progress__label">{{ step.label }}</p>
+              <p class="progress__detail">{{ step.detail }}</p>
+            </div>
+          </li>
+        }
+      </ol>
+    </mat-card-content>
+  </mat-card>
+}
+
+@if (error(); as message) {
+  <p class="error">{{ message }}</p>
+}
+
+@if (result(); as chat) {
+  <mat-card class="form-card">
+    <mat-card-header>
+      <mat-card-title>Answer</mat-card-title>
+      <mat-card-subtitle>
+        route={{ chat.route }} · source={{ chat.source }} ·
+        {{ chat.llm ? 'GPT ' + (chat.model || '') : 'no GPT' }}
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <p>{{ chat.answer }}</p>
+      @if (chat.trace.length) {
+        <ul class="trace">
+          @for (entry of chat.trace; track $index) {
+            <li>
+              <strong>{{ entry.agent }}</strong> — {{ entry.reason }}
+              @for (call of entry.toolCalls; track $index) {
+                <div class="trace__tool">{{ call.tool }}</div>
+              }
+            </li>
+          }
+        </ul>
+      }
+    </mat-card-content>
+  </mat-card>
+}

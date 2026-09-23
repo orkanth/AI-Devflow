@@ -21,7 +21,7 @@ def route_message(message: str) -> str:
     if re.search(
         r"(create|add|open|edit|update|delete|remove|assign|archive).*(task|ticket|project|user|member)",
         text,
-    ) or text.startswith("create task"):
+    ) or text.startswith("create task") or (re.search(r"\btdd\b", text) and "task" in text):
         return "task"
     if re.search(r"(how many|analytics|metrics|status of tasks|dashboard)", text):
         return "analytics"

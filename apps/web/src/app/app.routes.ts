@@ -1,4 +1,5 @@
 import { Route } from '@angular/router';
+import { AgentPromptPage } from './pages/agent-prompt/agent-prompt';
 import { Shell } from './layout/shell';
 import { ChatPage } from './pages/chat/chat';
 import { DashboardPage } from './pages/dashboard/dashboard';
@@ -19,6 +20,7 @@ export const appRoutes: Route[] = [
       { path: 'projects', component: ProjectsPage },
       { path: 'tdd-upload', component: TddUploadPage },
       { path: 'tasks', component: TasksPage },
+      { path: 'agent-prompt', component: AgentPromptPage },
       { path: 'users', component: UsersPage },
       { path: 'profile', component: ProfilePage },
       { path: 'knowledge', component: KnowledgePage },

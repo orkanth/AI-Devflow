@@ -95,7 +95,8 @@ def plan_workspace_action(message: str, catalog: dict[str, Any]) -> dict[str, An
             "You plan a single workspace tool call against NestJS. "
             'Return JSON {"tool": string, "args": object}. '
             "Tools: create_task, update_task, delete_task, create_project, delete_project, "
-            "create_user, delete_user. "
+            "create_user, delete_user, create_tasks_from_tdd. "
+            "Use create_tasks_from_tdd when the user wants tasks generated from TDD documents. "
             "For assign, use update_task with task_id and assignee_id from the catalog. "
             "Use catalog ids; never invent UUIDs.",
             f"User: {message}\nCatalog: {json.dumps(catalog)}",

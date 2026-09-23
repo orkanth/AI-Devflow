@@ -9,13 +9,17 @@ from app.tools.nestjs_tools import NestJsTools
 
 
 def run_task_agent(state: GraphState, tools: NestJsTools) -> GraphState:
-    planned = _try_llm_plan(state, tools)
-    if planned:
-        tool_name, args, result, answer, reason = planned
-    else:
-        intent = _intent(state.message)
+    intent = _intent(state.message)
+    if intent == "create_tasks_from_tdd":
         tool_name, args, result, answer = _execute(intent, state, tools)
-        reason = f"Workspace write intent: {intent}."
+        reason = "Workspace write intent: create_tasks_from_tdd."
+    else:
+        planned = _try_llm_plan(state, tools)
+        if planned:
+            tool_name, args, result, answer, reason = planned
+        else:
+            tool_name, args, result, answer = _execute(intent, state, tools)
+            reason = f"Workspace write intent: {intent}."
     state.answer = answer
     if isinstance(result, dict) and result.get("error"):
         state.answer += f" NestJS error: {result['error']}"
@@ -94,6 +98,8 @@ def _run_planned_tool(tools: NestJsTools, tool: str, args: dict, state: GraphSta
         )
     if tool == "delete_project":
         return tools.delete_project(args.get("project_id") or args.get("id") or "")
+    if tool == "create_tasks_from_tdd":
+        return _create_tasks_from_tdd(state, tools)[2]
     if tool == "create_user":
         name = args.get("name") or "New teammate"
         email = args.get("email") or f"{name.lower().replace(' ', '.')}@devflow.ai"
@@ -105,6 +111,8 @@ def _run_planned_tool(tools: NestJsTools, tool: str, args: dict, state: GraphSta
 
 def _intent(message: str) -> str:
     text = message.lower()
+    if re.search(r"\btdd\b", text) and re.search(r"task", text):
+        return "create_tasks_from_tdd"
     if re.search(r"assign", text):
         return "assign_task"
     if re.search(r"(delete|remove).*(user)", text):
@@ -173,12 +181,14 @@ def _execute(intent: str, state: GraphState, tools: NestJsTools):
 
     if intent == "update_task":
         task = _find_task(tools, message)
-        title = _quoted(message)
         if not task:
             return "update_task", {}, {"error": "task not found"}, "Could not find that task to update."
-        fields = {"title": title} if title else {"description": message}
+        fields = _update_fields(message, task)
         result = tools.update_task(task["id"], **fields)
         return "update_task", {"task_id": task["id"], **fields}, result, f'Updated task "{task["title"]}".'
+
+    if intent == "create_tasks_from_tdd":
+        return _create_tasks_from_tdd(state, tools)
 
     project_id = state.project_id
     if not project_id:
@@ -196,6 +206,72 @@ def _execute(intent: str, state: GraphState, tools: NestJsTools):
     if assignee:
         answer += f" Assigned to {assignee['name']}."
     return "create_task", {"project_id": project_id, "title": title}, result, answer
+
+
+def _create_tasks_from_tdd(state: GraphState, tools: NestJsTools):
+    project_id = state.project_id
+    if not project_id:
+        projects = tools.list_projects()
+        project_id = projects[0]["id"] if projects else None
+    docs = tools.list_knowledge(project_id)
+    args = {"project_id": project_id, "documents": [doc.get("id") for doc in docs]}
+    if not docs:
+        return (
+            "create_tasks_from_tdd",
+            args,
+            {"documents": []},
+            "No TDD documents found for this project. Upload files on the TDD upload page, then run this prompt again.",
+        )
+    if not project_id:
+        return (
+            "create_tasks_from_tdd",
+            args,
+            {"error": "missing project"},
+            "Create a project first, then generate tasks from TDD.",
+        )
+    created = []
+    for doc in docs:
+        title = f"TDD: {doc.get('title') or doc.get('originalName') or doc.get('filename') or 'document'}"
+        created.append(
+            tools.create_task(
+                project_id=project_id,
+                title=title,
+                description=f"Generated from TDD document {doc.get('originalName') or title}",
+            )
+        )
+    names = ", ".join(f'"{item.get("title")}"' for item in created if isinstance(item, dict))
+    return (
+        "create_tasks_from_tdd",
+        {**args, "created": len(created)},
+        {"documents": docs, "tasks": created},
+        f"Created {len(created)} task(s) from TDD documents: {names}.",
+    )
+
+
+def _update_fields(message: str, task: dict) -> dict:
+    text = message.lower()
+    fields: dict = {}
+    if re.search(r"\bblocked\b", text):
+        fields["status"] = "blocked"
+    elif re.search(r"\bdone\b", text):
+        fields["status"] = "done"
+    elif re.search(r"in[_\s-]?progress", text):
+        fields["status"] = "in_progress"
+    elif re.search(r"\btodo\b", text):
+        fields["status"] = "todo"
+    if re.search(r"\bhigh\b", text):
+        fields["priority"] = "high"
+    elif re.search(r"\blow\b", text):
+        fields["priority"] = "low"
+    elif re.search(r"\bmedium\b", text):
+        fields["priority"] = "medium"
+    if not fields:
+        quoted = _quoted(message)
+        if quoted and quoted.lower() != task.get("title", "").lower():
+            fields["title"] = quoted
+        else:
+            fields["description"] = message
+    return fields
 
 
 def _quoted(message: str) -> str | None:

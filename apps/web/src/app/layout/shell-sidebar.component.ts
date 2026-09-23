@@ -32,6 +32,7 @@ export class ShellSidebarComponent {
     { label: 'Projects', route: '/projects', icon: 'folder' },
     { label: 'TDD upload', route: '/tdd-upload', icon: 'upload_file' },
     { label: 'Tasks', route: '/tasks', icon: 'assignment' },
+    { label: 'Agent prompt', route: '/agent-prompt', icon: 'smart_toy' },
     { label: 'Users', route: '/users', icon: 'group' },
     { label: 'Profile', route: '/profile', icon: 'person' },
     // { label: 'Knowledge / RAG', route: '/knowledge', icon: 'auto_stories' },

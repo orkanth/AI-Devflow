@@ -48,6 +48,13 @@ class NestJsTools:
         data = self._get("/api/tasks")
         return data if isinstance(data, list) else []
 
+    def list_knowledge(self, project_id: str | None = None) -> list[dict[str, Any]]:
+        path = "/api/knowledge"
+        if project_id:
+            path += f"?projectId={project_id}"
+        data = self._get(path)
+        return data if isinstance(data, list) else []
+
     def create_user(self, name: str, email: str, role: str = "Developer") -> dict[str, Any]:
         return self._send("POST", "/api/users", {"name": name, "email": email, "role": role})
 

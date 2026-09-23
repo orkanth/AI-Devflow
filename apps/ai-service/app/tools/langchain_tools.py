@@ -43,6 +43,10 @@ class CreateUserInput(BaseModel):
     role: str = "Developer"
 
 
+class CreateTasksFromTddInput(BaseModel):
+    project_id: str = ""
+
+
 def nestjs_tools(nest: NestJsTools, default_project_id: str | None = None) -> list[StructuredTool]:
     def create_task(
         title: str,
@@ -97,6 +101,23 @@ def nestjs_tools(nest: NestJsTools, default_project_id: str | None = None) -> li
     def delete_user(id: str) -> dict[str, Any]:
         return nest.delete_user(id)
 
+    def create_tasks_from_tdd(project_id: str = "") -> dict[str, Any]:
+        pid = project_id or default_project_id
+        docs = nest.list_knowledge(pid)
+        if not docs:
+            return {"documents": [], "message": "No TDD documents found"}
+        created = []
+        for doc in docs:
+            title = f"TDD: {doc.get('title') or doc.get('originalName') or doc.get('filename')}"
+            created.append(
+                nest.create_task(
+                    project_id=pid or "",
+                    title=title,
+                    description=f"Generated from TDD document {doc.get('originalName') or title}",
+                )
+            )
+        return {"documents": docs, "tasks": created}
+
     return [
         StructuredTool.from_function(
             name="create_task",
@@ -139,6 +160,12 @@ def nestjs_tools(nest: NestJsTools, default_project_id: str | None = None) -> li
             description="Delete a user by catalog id.",
             func=delete_user,
             args_schema=DeleteIdInput,
+        ),
+        StructuredTool.from_function(
+            name="create_tasks_from_tdd",
+            description="Create one NestJS task per uploaded TDD document in the project.",
+            func=create_tasks_from_tdd,
+            args_schema=CreateTasksFromTddInput,
         ),
     ]
 
