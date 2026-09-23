@@ -8,6 +8,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
 import { TddUploadDialogComponent } from '../../dialogs/tdd-upload-dialog.component';
 import { ApiService, KnowledgeDoc, Project } from '../../services/api.service';
+import { ConfirmDialogComponent } from '../../dialogs/confirm-dialog.component';
 
 @Component({
   selector: 'df-tdd-upload',
@@ -28,7 +29,7 @@ export class TddUploadPage {
   protected readonly projects = signal<Project[]>([]);
   protected readonly docs = signal<KnowledgeDoc[]>([]);
   protected readonly projectId = signal('');
-  protected readonly columns = ['title', 'source', 'preview'];
+  protected readonly columns = ['title', 'source', 'delete'];
 
   constructor() {
     this.api.projects().subscribe((projects) => {
@@ -63,6 +64,21 @@ export class TddUploadPage {
         });
       });
   }
+
+    remove(doc: doc) {
+      this.dialog
+        .open(ConfirmDialogComponent, {
+          data: {
+            title: 'Delete user',
+            message: `Delete ${doc.name}? .`,
+          },
+        })
+        .afterClosed()
+        .subscribe((ok) => {
+          if (!ok) return;
+          this.api.deleteUser(doc.id).subscribe(() => this.reload());
+        });
+    }
 
   private reload() {
     const projectId = this.projectId();
