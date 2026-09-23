@@ -6,9 +6,10 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { ConfirmDialogComponent } from '../../dialogs/confirm-dialog.component';
 import { TddUploadDialogComponent } from '../../dialogs/tdd-upload-dialog.component';
 import { ApiService, KnowledgeDoc, Project } from '../../services/api.service';
-import { ConfirmDialogComponent } from '../../dialogs/confirm-dialog.component';
 
 @Component({
   selector: 'df-tdd-upload',
@@ -19,6 +20,7 @@ import { ConfirmDialogComponent } from '../../dialogs/confirm-dialog.component';
     MatIconModule,
     MatSelectModule,
     MatTableModule,
+    MatTooltipModule,
   ],
   templateUrl: './tdd-upload.html',
   styleUrl: './tdd-upload.css',
@@ -29,7 +31,7 @@ export class TddUploadPage {
   protected readonly projects = signal<Project[]>([]);
   protected readonly docs = signal<KnowledgeDoc[]>([]);
   protected readonly projectId = signal('');
-  protected readonly columns = ['title', 'source', 'delete'];
+  protected readonly columns = ['title', 'source', 'preview', 'actions'];
 
   constructor() {
     this.api.projects().subscribe((projects) => {
@@ -65,20 +67,20 @@ export class TddUploadPage {
       });
   }
 
-    remove(doc: doc) {
-      this.dialog
-        .open(ConfirmDialogComponent, {
-          data: {
-            title: 'Delete user',
-            message: `Delete ${doc.name}? .`,
-          },
-        })
-        .afterClosed()
-        .subscribe((ok) => {
-          if (!ok) return;
-          this.api.deleteUser(doc.id).subscribe(() => this.reload());
-        });
-    }
+  remove(doc: KnowledgeDoc) {
+    this.dialog
+      .open(ConfirmDialogComponent, {
+        data: {
+          title: 'Delete document',
+          message: `Delete "${doc.title}"? This removes it from the project knowledge store.`,
+        },
+      })
+      .afterClosed()
+      .subscribe((ok) => {
+        if (!ok) return;
+        this.api.deleteKnowledge(doc.id).subscribe(() => this.reload());
+      });
+  }
 
   private reload() {
     const projectId = this.projectId();

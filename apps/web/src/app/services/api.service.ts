@@ -147,6 +147,10 @@ export class ApiService {
     return this.http.post(`${this.base}/knowledge/ingest`, body);
   }
 
+  deleteKnowledge(id: string) {
+    return this.http.delete(`${this.base}/knowledge/${id}`);
+  }
+
   search(query: string) {
     return this.http.post(`${this.base}/knowledge/search`, { query });
   }

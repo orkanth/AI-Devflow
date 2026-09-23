@@ -115,6 +115,9 @@ class NestJsTools:
     def delete_task(self, task_id: str) -> dict[str, Any]:
         return self._send("DELETE", f"/api/tasks/{task_id}")
 
+    def delete_knowledge(self, doc_id: str) -> dict[str, Any]:
+        return self._send("DELETE", f"/api/knowledge/{doc_id}")
+
     def analytics(self) -> dict[str, Any]:
         data = self._get("/api/ai/analytics")
         return data if isinstance(data, dict) else {"error": "unavailable"}

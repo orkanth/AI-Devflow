@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
 import { IngestKnowledgeDto, SearchKnowledgeDto } from './knowledge.dto';
 import { KnowledgeService } from './knowledge.service';
 
@@ -19,5 +19,15 @@ export class KnowledgeController {
   @Post('search')
   search(@Body() dto: SearchKnowledgeDto) {
     return this.knowledge.search(dto.query, dto.projectId);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.knowledge.findOne(id);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.knowledge.remove(id);
   }
 }

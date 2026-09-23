@@ -87,6 +87,10 @@ export class MemoryStore {
     this.tasks = this.tasks.filter((task) => task.id !== id);
   }
 
+  removeChunk(id: string): void {
+    this.chunks = this.chunks.filter((chunk) => chunk.id !== id);
+  }
+
   private seed(): void {
     const now = new Date().toISOString();
     const ada: User = {

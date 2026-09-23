@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { ProjectsService } from '../projects/projects.service';
 import { embed } from '../store/embeddings';
@@ -36,6 +36,21 @@ export class KnowledgeService {
     this.store.chunks.push(chunk);
     const { embedding, ...rest } = chunk;
     return { ...rest, embeddingDim: embedding.length };
+  }
+
+  findOne(id: string) {
+    const chunk = this.store.chunks.find((item) => item.id === id);
+    if (!chunk) {
+      throw new NotFoundException(`Document ${id} not found`);
+    }
+    const { embedding, ...rest } = chunk;
+    return { ...rest, embeddingDim: embedding.length };
+  }
+
+  remove(id: string) {
+    this.findOne(id);
+    this.store.removeChunk(id);
+    return { id, deleted: true };
   }
 
   search(query: string, projectId?: string, k = 4) {

@@ -21,3 +21,7 @@ table {
   color: #64748b;
   margin: 24px 0;
 }
+
+.df-action-delete {
+  color: #dc2626;
+}
