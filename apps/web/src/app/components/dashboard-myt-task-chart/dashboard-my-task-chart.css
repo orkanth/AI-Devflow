@@ -1,0 +1,90 @@
+:host.df-my-tasks-chart {
+  display: block;
+  height: 100%;
+}
+
+.tasks-chart-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e2e8f0;
+  box-shadow: none;
+}
+
+.tasks-chart-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 0;
+  flex-shrink: 0;
+}
+
+.tasks-chart-card__titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.tasks-chart-card__filter {
+  width: min(220px, 100%);
+  margin-top: 4px;
+}
+
+.tasks-chart-card__content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.tasks-chart-card__canvas-wrap {
+  flex: 1;
+  min-height: 280px;
+  margin-top: 8px;
+}
+
+.tasks-chart-card__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+  flex-shrink: 0;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  color: #475569;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.legend-item--todo .legend-dot {
+  background: #2563eb;
+}
+
+.legend-item--progress .legend-dot {
+  background: #d97706;
+}
+
+.legend-item--done .legend-dot {
+  background: #16a34a;
+}
+
+@media (max-width: 600px) {
+  .tasks-chart-card__header {
+    flex-direction: column;
+  }
+
+  .tasks-chart-card__filter {
+    width: 100%;
+  }
+}

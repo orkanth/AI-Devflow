@@ -1,0 +1,60 @@
+<header class="page-header">
+  <div>
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-subtitle">
+      Welcome back{{ session.currentUser() ? ', ' + session.currentUser()!.name
+      : '' }}.
+    </p>
+  </div>
+</header>
+
+@if (loading()) {
+<mat-progress-bar mode="indeterminate" />
+} @if (error()) {
+<mat-card class="alert-card">
+  <mat-card-content>
+    API is not reachable. Start NestJS with <code>npx nx serve api</code>.
+  </mat-card-content>
+</mat-card>
+}
+
+<section class="dashboard__stats">
+  @for (card of cards(); track card.label) {
+  <df-dashboard-stat-card
+    [label]="card.label"
+    [value]="card.value"
+    [icon]="card.icon"
+    [color]="card.color"
+  />
+  }
+</section>
+
+<mat-grid-list cols="2">
+  <mat-grid-tile style="align-items: flex-start;"  class="top-aligned-tile">
+
+      <'df-dashboard-my-task-chart
+      [stats]="chartTaskStats()"
+      [projects]="projects()"
+      [selectedProjectId]="chartProjectId()"
+      (projectChange)="chartProjectId.set($event)"
+    /> 
+  </mat-grid-tile>
+  <mat-grid-tile style="align-items: flex-start;"  class="top-aligned-tile"> 
+    <mat-card class="team-card">
+      <mat-card-header>
+        <mat-icon mat-card-avatar>group</mat-icon>
+        <mat-card-title>Team</mat-card-title>
+        <mat-card-subtitle>Users from NestJS</mat-card-subtitle>
+      </mat-card-header>
+      <mat-nav-list>
+        @for (user of users(); track user.id) {
+        <a mat-list-item routerLink="/users">
+          <mat-icon matListItemIcon>account_circle</mat-icon>
+          <span matListItemTitle>{{ user.name }}</span>
+          <span matListItemLine>{{ user.role }} · {{ user.email }}</span>
+        </a>
+        }
+      </mat-nav-list>
+    </mat-card></mat-grid-tile
+  >
+</mat-grid-list>

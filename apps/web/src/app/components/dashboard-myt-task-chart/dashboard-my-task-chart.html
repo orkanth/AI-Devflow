@@ -1,0 +1,44 @@
+<mat-card class="tasks-chart-card">
+  <mat-card-header class="tasks-chart-card__header">
+    <div class="tasks-chart-card__titles">
+      <mat-card-title>Project tasks</mat-card-title>
+      <mat-card-subtitle>
+        {{ selectedProjectName() }} — {{ stats().total }} tasks by status
+      </mat-card-subtitle>
+    </div>
+
+    <mat-form-field appearance="outline" class="tasks-chart-card__filter" subscriptSizing="dynamic">
+      <mat-label>Project</mat-label>
+      <mat-select
+        [value]="selectedProjectId()"
+        (valueChange)="onProjectSelect($event)"
+      >
+        <mat-option value="">All projects</mat-option>
+        @for (project of projects(); track project.id) {
+          <mat-option [value]="project.id">{{ project.name }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+  </mat-card-header>
+
+  <mat-card-content class="tasks-chart-card__content">
+    <div class="tasks-chart-card__canvas-wrap">
+      <canvas #chartCanvas aria-label="Bar chart of tasks by status"></canvas>
+    </div>
+
+    <div class="tasks-chart-card__legend">
+      <span class="legend-item legend-item--todo">
+        <span class="legend-dot"></span>
+        To Do ({{ stats().todo }})
+      </span>
+      <span class="legend-item legend-item--progress">
+        <span class="legend-dot"></span>
+        In Progress ({{ stats().in_progress }})
+      </span>
+      <span class="legend-item legend-item--done">
+        <span class="legend-dot"></span>
+        Done ({{ stats().done }})
+      </span>
+    </div>
+  </mat-card-content>
+</mat-card>

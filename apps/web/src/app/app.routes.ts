@@ -1,13 +1,13 @@
 import { Route } from '@angular/router';
-import { Shell } from './layout/shell';
-import { DashboardPage } from './pages/dashboard.page';
-import { ProjectsPage } from './pages/projects.page';
+import { Shell } from './layout/shell'; 
 import { TasksPage } from './pages/tasks.page'; 
 import { ProfilePage } from './pages/profile.page';
 import { KnowledgePage } from './pages/knowledge.page';
 import { ChatPage } from './pages/chat.page';
 import { LearnPage } from './pages/learn.page';
 import { UsersPage } from './pages/users/users';
+import { ProjectsPage } from './pages/projects/projects';
+import { DashboardPage } from './pages/dashboard/dashboard';
 
 export const appRoutes: Route[] = [
   {

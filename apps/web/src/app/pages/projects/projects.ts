@@ -1,9 +1,114 @@
-import { Component } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTableModule } from '@angular/material/table';
+import { MatTooltipModule } from '@angular/material/tooltip'; 
+import { ConfirmDialogComponent } from '../../dialogs/confirm-dialog.component';
+import { ProjectFormDialogComponent } from '../../dialogs/project-form-dialog.component';
+import { ApiService, Project, User } from '../../services/api.service'; 
+import { PriorityChipComponent } from '../../ui/priority-chip.component';
+import { StatusBoardComponent, StatusColumn } from '../../ui/status-board.component';
+import { ViewToggleComponent } from '../../ui/view-toggle.component';
+ 
 
 @Component({
   selector: 'df-projects',
-  imports: [],
+  imports: [
+    MatButtonModule,
+    MatIconModule,
+    MatTableModule,
+    MatTooltipModule,
+    PriorityChipComponent,
+    StatusBoardComponent,
+    ViewToggleComponent,
+  ], 
   templateUrl: './projects.html',
   styleUrl: './projects.css',
 })
-export class Projects {}
+export class ProjectsPage {
+  private readonly api = inject(ApiService);
+  private readonly dialog = inject(MatDialog);
+  protected readonly projects = signal<Project[]>([]);
+  protected readonly users = signal<User[]>([]);
+  protected readonly view = signal<'list' | 'grid'>(
+    (localStorage.getItem('devflow-projects-view') as 'list' | 'grid') || 'grid'
+  );
+  protected readonly columns = ['name', 'owner', 'status', 'priority', 'actions'];
+  protected readonly boardColumns: StatusColumn[] = [
+    { id: 'planning', label: 'Planning' },
+    { id: 'active', label: 'Active' },
+    { id: 'on_hold', label: 'On hold' },
+    { id: 'completed', label: 'Completed' },
+    { id: 'archived', label: 'Archived' },
+  ];
+
+  constructor() {
+    this.reload();
+  }
+
+  setView(mode: 'list' | 'grid') {
+    this.view.set(mode);
+    localStorage.setItem('devflow-projects-view', mode);
+  }
+
+  statusLabel(status: string) {
+    return this.boardColumns.find((column) => column.id === status)?.label ?? status;
+  }
+
+  ownerName(id: string) {
+    return this.users().find((user) => user.id === id)?.name ?? 'Unknown';
+  }
+
+  onMoved(event: { item: Project; status: string }) {
+    this.projects.update((list) =>
+      list.map((project) =>
+        project.id === event.item.id ? { ...project, status: event.status } : project
+      )
+    );
+    this.api.updateProject(event.item.id, { status: event.status }).subscribe({
+      error: () => this.reload(),
+    });
+  }
+
+  openCreate() {
+    this.dialog
+      .open(ProjectFormDialogComponent, { data: { users: this.users() } })
+      .afterClosed()
+      .subscribe((value) => {
+        if (!value) return;
+        this.api.createProject(value).subscribe(() => this.reload());
+      });
+  }
+
+  openEdit(project: Project) {
+    this.dialog
+      .open(ProjectFormDialogComponent, { data: { project, users: this.users() } })
+      .afterClosed()
+      .subscribe((value) => {
+        if (!value) return;
+        this.api.updateProject(project.id, value).subscribe(() => this.reload());
+      });
+  }
+
+  remove(project: Project) {
+    this.dialog
+      .open(ConfirmDialogComponent, {
+        data: {
+          title: 'Delete project',
+          message: `Delete ${project.name} and its tasks?`,
+        },
+      })
+      .afterClosed()
+      .subscribe((ok) => {
+        if (!ok) return;
+        this.api.deleteProject(project.id).subscribe(() => this.reload());
+      });
+  }
+
+  private reload() {
+    this.api.users().subscribe((users) => this.users.set(users));
+    this.api.projects().subscribe((projects) => this.projects.set(projects));
+  }
+}
+

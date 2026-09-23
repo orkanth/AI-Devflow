@@ -67,6 +67,9 @@ npx nx serve ai-service
 npx nx serve web
 ```
 
+# if it's getting issue
+npx nx reset
+
 Open http://localhost:4200
 
 Optional database:

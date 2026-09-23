@@ -1,0 +1,38 @@
+.dashboard__stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin: 16px 0 24px;
+}
+
+.alert-card {
+  margin-bottom: 16px;
+  border: 1px solid #f59e0b;
+}
+
+.team-card {
+  border: 1px solid #e2e8f0;
+  box-shadow: none;
+}
+
+@media (max-width: 1024px) {
+  .dashboard__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .dashboard__stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+.top-aligned-tile ::ng-deep .mat-grid-tile-content {
+  align-items: flex-start; /* Top alignment */
+  justify-content: flex-start; /* Left alignment */
+  width: 100%;
+}
+
+.top-aligned-tile ::ng-deep .team-card {
+  width: 100%;
+}
