@@ -75,21 +75,21 @@ export class AiService {
       this.logger.warn(
         `FastAPI unavailable, using NestJS fallback: ${(error as Error).message}`
       );
-      return this.localSupervisor(dto);
+      return await this.localSupervisor(dto);
     }
   }
 
   /**
    * Same routing policy as the Python supervisor so the demo still works
-   * when the AI process is down. Interview talking point: graceful degradation.
+   * when the AI process is down. Graceful degradation.
    */
-  localSupervisor(dto: ChatDto): ChatResult {
+  async localSupervisor(dto: ChatDto): Promise<ChatResult> {
     const text = dto.message.toLowerCase();
     if (
       /(create|add|open).*(task|ticket)|assign/.test(text) ||
       text.startsWith('create task')
     ) {
-      return this.taskAgent(dto);
+      return await this.taskAgent(dto);
     }
     if (
       /(how many|analytics|metrics|status of tasks|dashboard)/.test(text)
@@ -99,11 +99,11 @@ export class AiService {
     return this.ragAgent(dto);
   }
 
-  private taskAgent(dto: ChatDto): ChatResult {
+  private async taskAgent(dto: ChatDto): Promise<ChatResult> {
     const projectId = dto.projectId ?? this.store.projects[0]?.id;
     const titleMatch = dto.message.match(/task[:\s]+["']?([^"'\n.]+)["']?/i);
     const title = titleMatch?.[1]?.trim() ?? dto.message.slice(0, 80);
-    const task = this.tasks.create({
+    const task = await this.tasks.create({
       projectId,
       title,
       description: `Created by NestJS fallback task agent from: ${dto.message}`,

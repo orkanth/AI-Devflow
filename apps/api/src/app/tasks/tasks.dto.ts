@@ -1,39 +1,40 @@
-import {
-  IsIn,
-  IsOptional,
-  IsString,
-  IsUUID,
-  MinLength,
-} from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class CreateTaskDto {
   @IsUUID()
-  projectId!: string;
+  @IsNotEmpty()
+  projectId: string;
 
   @IsString()
-  @MinLength(3)
-  title!: string;
+  @IsNotEmpty()
+  title: string;
 
+  @IsOptional()
   @IsString()
-  description!: string;
+  description?: string;
 
   @IsOptional()
-  @IsIn(['todo', 'in_progress', 'done', 'blocked'])
-  status?: 'todo' | 'in_progress' | 'done' | 'blocked';
+  @IsString()
+  status?: string;
 
   @IsOptional()
-  @IsIn(['low', 'medium', 'high'])
-  priority?: 'low' | 'medium' | 'high';
+  @IsString()
+  priority?: string;
 
   @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : value))
   @IsUUID()
-  assigneeId?: string;
+  assigneeId?: string | null;
 }
 
 export class UpdateTaskDto {
   @IsOptional()
+  @IsUUID()
+  projectId?: string;
+
+  @IsOptional()
   @IsString()
-  @MinLength(3)
   title?: string;
 
   @IsOptional()
@@ -41,14 +42,15 @@ export class UpdateTaskDto {
   description?: string;
 
   @IsOptional()
-  @IsIn(['todo', 'in_progress', 'done', 'blocked'])
-  status?: 'todo' | 'in_progress' | 'done' | 'blocked';
+  @IsString()
+  status?: string;
 
   @IsOptional()
-  @IsIn(['low', 'medium', 'high'])
-  priority?: 'low' | 'medium' | 'high';
+  @IsString()
+  priority?: string;
 
   @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : value))
   @IsUUID()
-  assigneeId?: string;
+  assigneeId?: string | null;
 }
