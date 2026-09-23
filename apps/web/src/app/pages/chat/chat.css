@@ -1,0 +1,22 @@
+.prompts {
+  margin-bottom: 16px;
+}
+
+.form-card,
+mat-card {
+  border: 1px solid #e2e8f0;
+  box-shadow: none;
+  margin-bottom: 16px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+pre {
+  white-space: pre-wrap;
+  font-size: 0.8125rem;
+  margin: 0;
+}

@@ -1,0 +1,53 @@
+.header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+table {
+  width: 100%;
+  background: #fff;
+}
+
+.cell-desc {
+  color: #64748b;
+  font-size: 0.8125rem;
+}
+
+.df-action-edit {
+  color: #2563eb;
+}
+
+.df-action-delete {
+  color: #dc2626;
+}
+
+tr.row-high {
+  box-shadow: inset 4px 0 0 #dc2626;
+}
+
+tr.row-medium {
+  box-shadow: inset 4px 0 0 #d97706;
+}
+
+tr.row-low {
+  box-shadow: inset 4px 0 0 #2563eb;
+}
+
+.tile-title {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.tile-meta {
+  color: #64748b;
+  font-size: 0.75rem;
+  margin: 4px 0 8px;
+}
+
+.tile-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 -8px -4px;
+}

@@ -1,0 +1,85 @@
+<header class="page-header">
+  <div>
+    <h1 class="page-title">Tasks</h1>
+    <p class="page-subtitle">
+      List or grid board. Priority is color-coded. Drag tiles between columns to change status.
+    </p>
+  </div>
+  <div class="header-actions">
+    <df-view-toggle [view]="view()" (viewChange)="setView($event)" />
+    <button mat-flat-button color="primary" type="button" (click)="openCreate()">
+      <mat-icon>add_task</mat-icon>
+      New task
+    </button>
+  </div>
+</header>
+
+@if (view() === 'list') {
+  <table mat-table [dataSource]="tasks()">
+    <ng-container matColumnDef="title">
+      <th mat-header-cell *matHeaderCellDef>Title</th>
+      <td mat-cell *matCellDef="let task">
+        <strong>{{ task.title }}</strong>
+        <div class="cell-desc">{{ task.description }}</div>
+      </td>
+    </ng-container>
+    <ng-container matColumnDef="project">
+      <th mat-header-cell *matHeaderCellDef>Project</th>
+      <td mat-cell *matCellDef="let task">{{ projectName(task.projectId) }}</td>
+    </ng-container>
+    <ng-container matColumnDef="assignee">
+      <th mat-header-cell *matHeaderCellDef>Assignee</th>
+      <td mat-cell *matCellDef="let task">{{ userName(task.assigneeId) }}</td>
+    </ng-container>
+    <ng-container matColumnDef="status">
+      <th mat-header-cell *matHeaderCellDef>Status</th>
+      <td mat-cell *matCellDef="let task">{{ statusLabel(task.status) }}</td>
+    </ng-container>
+    <ng-container matColumnDef="priority">
+      <th mat-header-cell *matHeaderCellDef>Priority</th>
+      <td mat-cell *matCellDef="let task">
+        <df-priority-chip [priority]="task.priority" />
+      </td>
+    </ng-container>
+    <ng-container matColumnDef="actions">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let task">
+        <button mat-icon-button type="button" class="df-action-edit" matTooltip="Edit" (click)="openEdit(task)">
+          <mat-icon>edit</mat-icon>
+        </button>
+        <button
+          mat-icon-button
+          type="button"
+          class="df-action-delete"
+          matTooltip="Delete"
+          (click)="remove(task)"
+        >
+          <mat-icon>delete</mat-icon>
+        </button>
+      </td>
+    </ng-container>
+    <tr mat-header-row *matHeaderRowDef="columns"></tr>
+    <tr mat-row *matRowDef="let row; columns: columns" [class]="'row-' + row.priority"></tr>
+  </table>
+} @else {
+  <df-status-board [columns]="boardColumns" [items]="tasks()" (statusChange)="onMoved($event)">
+    <ng-template let-task>
+      <div class="tile-title">{{ task.title }}</div>
+      <div class="tile-meta">{{ projectName(task.projectId) }} · {{ userName(task.assigneeId) }}</div>
+      <df-priority-chip [priority]="task.priority" />
+      <div class="tile-actions">
+        <button mat-icon-button type="button" (click)="openEdit(task); $event.stopPropagation()">
+          <mat-icon>edit</mat-icon>
+        </button>
+        <button
+          mat-icon-button
+          type="button"
+          class="df-action-delete"
+          (click)="remove(task); $event.stopPropagation()"
+        >
+          <mat-icon>delete</mat-icon>
+        </button>
+      </div>
+    </ng-template>
+  </df-status-board>
+}
