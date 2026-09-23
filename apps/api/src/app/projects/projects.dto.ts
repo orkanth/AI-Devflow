@@ -1,29 +1,31 @@
-import { IsIn, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
+import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class CreateProjectDto {
   @IsString()
-  @MinLength(2)
-  name!: string;
+  name: string;
 
+  @IsOptional()
   @IsString()
-  description!: string;
+  description?: string;
 
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : value))
   @IsUUID()
-  ownerId!: string;
+  ownerId?: string | null;
 
   @IsOptional()
-  @IsIn(['planning', 'active', 'on_hold', 'completed', 'archived'])
-  status?: 'planning' | 'active' | 'on_hold' | 'completed' | 'archived';
+  @IsString()
+  status?: string;
 
   @IsOptional()
-  @IsIn(['low', 'medium', 'high'])
-  priority?: 'low' | 'medium' | 'high';
+  @IsString()
+  priority?: string;
 }
 
 export class UpdateProjectDto {
   @IsOptional()
   @IsString()
-  @MinLength(2)
   name?: string;
 
   @IsOptional()
@@ -31,10 +33,15 @@ export class UpdateProjectDto {
   description?: string;
 
   @IsOptional()
-  @IsIn(['planning', 'active', 'on_hold', 'completed', 'archived'])
-  status?: 'planning' | 'active' | 'on_hold' | 'completed' | 'archived';
+  @Transform(({ value }) => (value === '' ? null : value))
+  @IsUUID()
+  ownerId?: string | null;
 
   @IsOptional()
-  @IsIn(['low', 'medium', 'high'])
-  priority?: 'low' | 'medium' | 'high';
+  @IsString()
+  status?: string;
+
+  @IsOptional()
+  @IsString()
+  priority?: string;
 }

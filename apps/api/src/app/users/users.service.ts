@@ -23,6 +23,21 @@ export class UsersService {
     return user;
   }
 
+  // Fetch a user along with their associated projects
+  async findOneWithProjects(id: string): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id },
+      relations: {
+        projects: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User ${id} not found`);
+    }
+    return user;
+  }
+
   async findByName(name: string): Promise<User | null> {
     return this.userRepository.findOne({
       where: { name: ILike(name.trim()) },
@@ -31,7 +46,7 @@ export class UsersService {
 
   async create(dto: CreateUserDto): Promise<User> {
     const user = this.userRepository.create(dto);
-    return this.userRepository.save(user); // Inserts into PostgreSQL
+    return this.userRepository.save(user);
   }
 
   async update(id: string, dto: UpdateUserDto): Promise<User> {
@@ -45,10 +60,11 @@ export class UsersService {
     if (count <= 1) {
       throw new BadRequestException('Cannot delete the last user');
     }
-    const result = await this.userRepository.delete(id);
-    if (result.affected === 0) {
-      throw new NotFoundException(`User ${id} not found`);
-    }
+
+    // Using entity remove instead of delete(id) triggers TypeORM cascade hooks if configured
+    const user = await this.findOne(id);
+    await this.userRepository.remove(user);
+
     return { id, deleted: true };
   }
 }

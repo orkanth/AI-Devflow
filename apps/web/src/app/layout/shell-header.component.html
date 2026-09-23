@@ -8,7 +8,7 @@
     <mat-icon>menu</mat-icon>
   </button>
 
-  <span class="shell-header__title">DevFlow AI</span>
+  <!-- <span class="shell-header__title">DevFlow AI</span> -->
   <span class="shell-header__spacer"></span>
 
   <button mat-button type="button" class="shell-header__user-btn" [matMenuTriggerFor]="userMenu">
@@ -29,8 +29,8 @@
       <span>Profile</span>
     </a>
     <mat-divider />
-    <div class="shell-header__menu-label">Switch user (demo)</div>
-    @for (user of users(); track user.id) {
+    <!-- <div class="shell-header__menu-label">Switch user (demo)</div> -->
+    <!-- @for (user of users(); track user.id) {
       <button
         mat-menu-item
         type="button"
@@ -40,6 +40,6 @@
         <mat-icon>swap_horiz</mat-icon>
         <span>{{ user.name }}</span>
       </button>
-    }
+    } -->
   </mat-menu>
 </mat-toolbar>

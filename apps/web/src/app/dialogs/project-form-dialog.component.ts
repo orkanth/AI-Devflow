@@ -41,6 +41,7 @@ export interface ProjectFormData {
       <mat-form-field appearance="outline">
         <mat-label>Owner</mat-label>
         <mat-select formControlName="ownerId">
+          <mat-option [value]="null">Select User</mat-option>
           @for (user of data.users; track user.id) {
             <mat-option [value]="user.id">{{ user.name }}</mat-option>
           }
@@ -87,7 +88,7 @@ export class ProjectFormDialogComponent implements OnInit {
   readonly form = this.fb.nonNullable.group({
     name: ['', Validators.required],
     description: ['', Validators.required],
-    ownerId: ['', Validators.required],
+    ownerId: [''],
     status: ['active'],
     priority: ['medium'],
   });
@@ -95,7 +96,7 @@ export class ProjectFormDialogComponent implements OnInit {
   ngOnInit(): void {
     const firstUser = this.data.users[0]?.id ?? '';
     this.form.patchValue({
-      ownerId: this.data.project?.ownerId ?? firstUser,
+      ownerId: this.data.project?.ownerId ?? '',
       name: this.data.project?.name ?? '',
       description: this.data.project?.description ?? '',
       status: this.data.project?.status ?? 'active',

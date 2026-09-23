@@ -34,7 +34,7 @@ import * as path from 'path';
         password: configService.get<string>('DB_PASSWORD', 'devflow'),
         database: configService.get<string>('DB_NAME', 'devflow'),
         autoLoadEntities: true, // Automatically loads entities from feature modules
-        synchronize: false,    // Set to false since your table already exists in PostgreSQL
+        synchronize: true,    // Set to false since your table already exists in PostgreSQL
       }),
     }),
 
