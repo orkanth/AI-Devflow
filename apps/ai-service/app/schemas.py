@@ -1,63 +1,43 @@
-from __future__ import annotations
-
-from typing import Any, Literal
-
+# apps/ai-service/app/schemas.py
+from typing import Optional, List, Dict, Any, Literal
 from pydantic import BaseModel, Field
 
-
-class ChatRequest(BaseModel):
-    message: str = Field(min_length=2)
-    project_id: str | None = None
-
-
-class ToolCall(BaseModel):
+class ToolCallRecord(BaseModel):
     tool: str
-    args: dict[str, Any]
-    result: Any
+    args: Dict[str, Any] = Field(default_factory=dict)
+    result: Any = None
 
-
-class AgentTrace(BaseModel):
+class TraceEntry(BaseModel):
     agent: str
     reason: str
-    tool_calls: list[ToolCall] = Field(default_factory=list)
+    toolCalls: List[ToolCallRecord] = Field(default_factory=list)
 
-
-class ContextChunk(BaseModel):
+class ContextEntry(BaseModel):
     title: str
     score: float
     content: str
 
+class ChatRequest(BaseModel):
+    prompt: Optional[str] = None
+    message: Optional[str] = None
+    thread_id: Optional[str] = "default"
+    projectId: Optional[str] = None
 
-class ChatResponse(BaseModel):
+    def get_text(self) -> str:
+        return (self.prompt or self.message or "").strip()
+
+class ChatResultResponse(BaseModel):
     answer: str
-    route: Literal["task", "rag", "analytics"]
-    source: str = "fastapi"
-    engine: str = "langgraph"
-    llm: bool = False
-    model: str | None = None
-    trace: list[AgentTrace]
-    contexts: list[ContextChunk] = Field(default_factory=list)
-
-
-class EvalRequest(BaseModel):
-    question: str
-    answer: str
-    contexts: list[str]
-
-
-class EvalResponse(BaseModel):
-    faithfulness: float
-    context_precision: float
-    answer_relevance: float
-    notes: str
-
-
-class GraphState(BaseModel):
-    """LangGraph-style shared state that every node reads and writes."""
-
-    message: str
-    project_id: str | None = None
-    route: Literal["task", "rag", "analytics"] | None = None
-    answer: str = ""
-    contexts: list[ContextChunk] = Field(default_factory=list)
-    trace: list[AgentTrace] = Field(default_factory=list)
+    route: str = "UserAgent"
+    source: str = "langgraph"
+    llm: bool = True
+    model: Optional[str] = "gpt-4o"
+    engine: str = "langgraph-supervisor"
+    trace: List[TraceEntry] = Field(default_factory=list)
+    contexts: List[ContextEntry] = Field(default_factory=list)
+    
+    # UI Action Metadata
+    status: Literal["completed", "requires_action", "error"] = "completed"
+    action_type: Literal["missing_info", "confirmation", "none"] = "none"
+    missing_fields: Optional[List[str]] = None
+    requires_confirmation: bool = False

@@ -1,70 +1,51 @@
-from __future__ import annotations
-
-from typing import Any, Callable
-
-from pydantic import BaseModel, Field
-
-
-class ToolSpec(BaseModel):
-    """MCP-style tool descriptor.
-
-    Model Context Protocol publishes tools with a name, description, and JSON
-    Schema so a model can decide *whether* and *how* to call them. We keep the
-    same contract without requiring a live MCP server.
-    """
-
-    name: str
-    description: str
-    input_schema: dict[str, Any]
-
-
-class MCPRegistry:
-    def __init__(self) -> None:
-        self._specs: dict[str, ToolSpec] = {}
-        self._handlers: dict[str, Callable[..., Any]] = {}
-
-    def register(self, spec: ToolSpec, handler: Callable[..., Any]) -> None:
-        self._specs[spec.name] = spec
-        self._handlers[spec.name] = handler
-
-    def list_tools(self) -> list[ToolSpec]:
-        return list(self._specs.values())
-
-    def call(self, name: str, **kwargs: Any) -> Any:
-        if name not in self._handlers:
-            raise KeyError(f"Unknown MCP tool: {name}")
-        return self._handlers[name](**kwargs)
-
-
-create_task_spec = ToolSpec(
-    name="create_task",
-    description="Create an engineering task in NestJS, the system of record.",
-    input_schema={
-        "type": "object",
-        "properties": {
-            "project_id": {"type": "string"},
-            "title": {"type": "string"},
-            "description": {"type": "string"},
-        },
-        "required": ["project_id", "title", "description"],
+USER_MCP_TOOLS = [
+    {
+        "name": "lookup_user",
+        "description": "Find an existing user by their full name or email address.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "identifier": {"type": "string", "description": "User's full name or email"}
+            },
+            "required": ["identifier"]
+        }
     },
-)
-
-search_knowledge_spec = ToolSpec(
-    name="search_knowledge",
-    description="Semantic search over pgvector-style knowledge chunks.",
-    input_schema={
-        "type": "object",
-        "properties": {
-            "query": {"type": "string"},
-            "project_id": {"type": "string"},
-        },
-        "required": ["query"],
+    {
+        "name": "create_user",
+        "description": "Create a new user. Name, email, and role are strictly required.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "email": {"type": "string", "format": "email"},
+                "role": {"type": "string"}
+            },
+            "required": ["name", "email", "role"]
+        }
     },
-)
-
-workspace_analytics_spec = ToolSpec(
-    name="workspace_analytics",
-    description="Aggregate user, project, and task counts from the API.",
-    input_schema={"type": "object", "properties": {}},
-)
+    {
+        "name": "update_user",
+        "description": "Update existing user attributes. Accepts user ID and fields to modify.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "user_id": {"type": "string"},
+                "name": {"type": "string"},
+                "email": {"type": "string"},
+                "role": {"type": "string"}
+            },
+            "required": ["user_id"]
+        }
+    },
+    {
+        "name": "delete_user",
+        "description": "Deletes an existing user by user ID. ONLY call this when confirmation is given.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "user_id": {"type": "string"}
+            },
+            "required": ["user_id"]
+        }
+    }
+]

@@ -11,18 +11,10 @@ import { MatSelectModule } from '@angular/material/select';
 import {
   AiStatus,
   ApiService,
-  ChatResult,
   Project,
 } from '../../services/api.service';
-
-export interface ExamplePrompt {
-  id: string;
-  title: string;
-  description: string;
-  icon: string;
-  prompt: string;
-  kind: 'tdd' | 'generic';
-}
+import { 
+  ChatResult, AiApiService } from '../../services/ai-api.service';
 
 export interface ProgressStep {
   id: string;
@@ -33,6 +25,7 @@ export interface ProgressStep {
 
 @Component({
   selector: 'df-agent-prompt',
+  standalone: true,
   imports: [
     FormsModule,
     MatButtonModule,
@@ -41,6 +34,7 @@ export interface ProgressStep {
     MatIconModule,
     MatInputModule,
     MatProgressBarModule,
+    TitleCasePipe,
     MatSelectModule,
   ],
   templateUrl: './agent-prompt.html',
@@ -48,6 +42,7 @@ export interface ProgressStep {
 })
 export class AgentPromptPage implements OnInit {
   private readonly api = inject(ApiService);
+  private readonly aiApi = inject(AiApiService);
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly projects = signal<Project[]>([]);
@@ -56,48 +51,11 @@ export class AgentPromptPage implements OnInit {
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly steps = signal<ProgressStep[]>([]);
-  protected readonly selectedExample = signal<string | null>(null);
 
+  // Remains empty by default since project selection is optional
   protected projectId = '';
   protected message = '';
   private progressTimer: ReturnType<typeof setInterval> | undefined;
-
-  protected readonly examples: ExamplePrompt[] = [
-    {
-      id: 'create-task',
-      title: 'Create task',
-      description: 'Ask the agent to open a new ticket in the selected project.',
-      icon: 'add_task',
-      kind: 'generic',
-      prompt: 'Create task "Write agent prompt notes"',
-    },
-    {
-      id: 'update-task',
-      title: 'Update task',
-      description: 'Change status or priority of an existing task by title.',
-      icon: 'edit_note',
-      kind: 'generic',
-      prompt:
-        'Update task "Write agent prompt notes" to in_progress with high priority',
-    },
-    {
-      id: 'create-project',
-      title: 'Create project',
-      description: 'Spin up a new workspace project from a single sentence.',
-      icon: 'create_new_folder',
-      kind: 'generic',
-      prompt: 'Create project "Mobile app rollout"',
-    },
-    {
-      id: 'tdd-tasks',
-      title: 'Create tasks from TDD',
-      description:
-        'Read uploaded TDD documents for this project and create one task per file.',
-      icon: 'playlist_add',
-      kind: 'tdd',
-      prompt: 'Create tasks from TDD documents for this project',
-    },
-  ];
 
   constructor() {
     this.destroyRef.onDestroy(() => this.clearProgressTimer());
@@ -109,19 +67,13 @@ export class AgentPromptPage implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((projects) => {
         this.projects.set(projects);
-        if (!this.projectId && projects[0]) {
-          this.projectId = projects[0].id;
-        }
+        // Do NOT auto-select projects[0] so selection remains optional
       });
+
     this.api
       .aiStatus()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((status) => this.aiStatus.set(status));
-  }
-
-  useExample(example: ExamplePrompt) {
-    this.selectedExample.set(example.id);
-    this.message = example.prompt;
   }
 
   send() {
@@ -129,20 +81,24 @@ export class AgentPromptPage implements OnInit {
     if (!text || this.busy()) {
       return;
     }
-    const example = this.examples.find((item) => item.id === this.selectedExample());
-    const kind =
-      example?.kind === 'tdd' || /tdd/i.test(text) ? 'tdd' : 'generic';
+
+    const isTdd = /tdd|document|spec/i.test(text);
 
     this.busy.set(true);
     this.error.set(null);
     this.result.set(null);
-    this.steps.set(this.buildSteps(kind));
+    this.steps.set(this.buildSteps(isTdd ? 'tdd' : 'generic'));
+
     this.activateNext();
     this.clearProgressTimer();
     this.progressTimer = setInterval(() => this.activateNext(), 850);
 
-    this.api.chat(text, this.projectId || undefined).subscribe({
+    // Pass projectId if selected, otherwise pass undefined
+    const selectedProjectId = this.projectId ? this.projectId : undefined;
+
+    this.aiApi.chat(text, selectedProjectId).subscribe({
       next: (result) => {
+        console.log('Agent prompt result:', result);
         this.clearProgressTimer();
         this.result.set(result);
         this.completeSteps(result);
@@ -165,35 +121,15 @@ export class AgentPromptPage implements OnInit {
         detail: 'Sending your request to the supervisor.',
         status: 'pending',
       },
-      {
-        id: 'route',
-        label: 'Route intent',
-        detail: 'Choosing create task, update task, create project, or TDD.',
-        status: 'pending',
-      },
     ];
-    if (kind === 'tdd') {
-      steps.push({
-        id: 'tdd',
-        label: 'Read TDD documents',
-        detail: 'Listing uploaded TDD files for the selected project.',
-        status: 'pending',
-      });
-    }
-    steps.push(
-      {
-        id: 'tools',
-        label: 'Call NestJS tools',
-        detail: 'Creating or updating records through the API.',
-        status: 'pending',
-      },
-      {
-        id: 'done',
-        label: 'Finish',
-        detail: 'Collecting the agent answer and trace.',
-        status: 'pending',
-      }
-    );
+
+    steps.push({
+      id: 'done',
+      label: 'Finish',
+      detail: 'Collecting the agent answer and trace.',
+      status: 'pending',
+    });
+
     return steps;
   }
 
@@ -201,10 +137,11 @@ export class AgentPromptPage implements OnInit {
     const steps = [...this.steps()];
     const active = steps.findIndex((step) => step.status === 'active');
     const pending = steps.findIndex((step) => step.status === 'pending');
+
     if (pending === -1) {
       return;
     }
-    // Keep the last step pending until the HTTP call returns.
+
     if (pending === steps.length - 1 && this.busy()) {
       if (active >= 0 && active < steps.length - 1) {
         steps[active] = { ...steps[active], status: 'done' };
@@ -212,16 +149,21 @@ export class AgentPromptPage implements OnInit {
       this.steps.set(steps);
       return;
     }
+
     if (active >= 0) {
       steps[active] = { ...steps[active], status: 'done' };
     }
+
     steps[pending] = { ...steps[pending], status: 'active' };
     this.steps.set(steps);
   }
 
   private completeSteps(result: ChatResult) {
     const tools = result.trace?.[0]?.toolCalls?.map((call) => call.tool) ?? [];
-    const usedTdd = tools.includes('list_knowledge') || tools.includes('create_tasks_from_tdd');
+    const usedTdd =
+      tools.includes('list_knowledge') ||
+      tools.includes('create_tasks_from_tdd');
+
     this.steps.set(
       this.steps().map((step) => {
         if (step.id === 'tdd' && !usedTdd) {
@@ -242,13 +184,11 @@ export class AgentPromptPage implements OnInit {
           return {
             ...step,
             status: 'done',
-            detail: tools.length
-              ? `Tools: ${tools.join(', ')}.`
-              : step.detail,
+            detail: tools.length ? `Tools: ${tools.join(', ')}.` : step.detail,
           };
         }
         return { ...step, status: 'done' };
-      })
+      }),
     );
   }
 
@@ -267,9 +207,23 @@ export class AgentPromptPage implements OnInit {
               ...step,
               status: step.status === 'active' ? 'error' : 'pending',
             }
-          : step
-      )
+          : step,
+      ),
     );
+  }
+
+  addMissingField(field: string) {
+    const current = this.message.trim();
+    if (current) {
+      this.message = `${current} and ${field.toLowerCase()} `;
+    } else {
+      this.message = `The ${field.toLowerCase()} is `;
+    }
+  }
+
+  confirmAction(answer: 'Yes' | 'No') {
+    this.message = answer;
+    this.send();
   }
 
   protected stepIcon(status: ProgressStep['status']) {

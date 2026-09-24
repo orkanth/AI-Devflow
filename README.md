@@ -13,7 +13,7 @@ Nx monorepo prototype of an **agentic engineering project-management platform**.
                              │ REST / WS
                     ┌────────▼────────┐
                     │     NestJS      │  apps/api
-                    │ Business/API    │  Users · Projects · Tasks
+                    │ Business/API    │  Users · Projects · Tasks · TTD
                     └────────┬────────┘
                              │
                        PostgreSQL + pgvector
@@ -118,3 +118,49 @@ Angular 22 wants Node `>= 22.22`. If `nx serve web` fails on an older 22.x, upgr
 
 ## create component in FE
 npx nx g @nx/angular:component apps/web/src/app/pages/users/users --skip-tests
+
+
+apps/ai-service/
+├── app/
+│   ├── eval/                      # KEEP: For offline LLM benchmark evaluations / tests
+│   │   ├── __init__.py
+│   │   └── evaluator.py
+│   ├── graph/                     # CORE: Agent orchestration tier
+│   │   ├── agents/                # Domain agents (task_agent.py, user_agent.py, etc.)
+│   │   ├── supervisor.py          # Intent router (decides whether to call CRUD, TDD RAG, or Direct Tool)
+│   │   └── __init__.py
+│   ├── rag/                       # CORE: TDD document ingestion & extraction
+│   │   ├── pipeline.py            # Reads chunks, embeds them, feeds context to GPT
+│   │   └── __init__.py
+│   ├── tools/                     # CORE: MCP tool layer
+│   │   ├── mcp_registry.py        # Dispatches tool calls via MCP client protocol
+│   │   ├── nestjs_tools.py        # REST connectors to your NestJS backend (localhost:3000)
+│   │   ├── langchain_tools.py     # Wraps MCP/REST tools into LangChain/LangGraph callable tools
+│   │   └── __init__.py
+│   ├── embeddings.py              # Text embedding generation (OpenAI text-embedding-3-small)
+│   ├── llm.py                     # OpenAI / Chat completions client setup
+│   ├── main.py                    # ENTRY POINT: FastAPI routes (/v1/chat, /health)
+│   ├── schemas.py                 # Pydantic schemas (ChatRequest, ChatResponse, AgentTrace)
+│   └── vectorstore.py             # Vector store connector (PostgreSQL pgvector)
+├── project.json                   # Nx / Monorepo project config
+└── requirements.txt               # Dependencies
+
+
+
+app/main.py: FastAPI application setup, CORS middleware, and API endpoints (invocations & SSE streaming).
+
+app/schemas.py: Pydantic input/output schemas for the HTTP layer.
+
+app/llm.py & app/embeddings.py: Shared model factories (e.g., ChatOpenAI/Anthropic and embedding models).
+
+app/vectorstore.py: pgvector connection via LangChain's vector store or SQLAlchemy async engine.
+
+app/rag/pipeline.py: Retrieval chains, context formatting, and similarity search logic.
+
+app/tools/nestjs_tools.py: HTTP client calls into your NestJS API (/tasks, /projects, etc.).
+
+app/tools/langchain_tools.py: Wrappers turning your NestJS client and RAG retrieval functions into @tool definitions.
+
+app/graph/agents/: Individual agent implementations (task_agent.py, rag_agent.py, analytics_agent.py).
+
+app/graph/supervisor.py: LangGraph State definition, supervisor decision chain, and the compiled StateGraph.

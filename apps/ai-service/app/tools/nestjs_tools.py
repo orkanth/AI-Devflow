@@ -1,130 +1,68 @@
-from __future__ import annotations
-
 import os
-from typing import Any
-
 import httpx
+from typing import Optional, Dict, Any
 
-NESTJS_URL = os.getenv("NESTJS_URL", "http://localhost:3333")
+NEST_BASE_URL = os.getenv("NESTJS_API_URL", "http://localhost:3000/api")
+INTERNAL_KEY = os.getenv("INTERNAL_SERVICE_KEY", "dev-secret-key")
 
+class NestJSClient:
+    def __init__(self):
+        self.headers = {"x-internal-token": INTERNAL_KEY}
 
-class NestJsTools:
-    """Workspace writes go through NestJS, never through Python state."""
+    # --- User Endpoints ---
+    async def find_user(self, identifier: str) -> Optional[Dict[str, Any]]:
+        async with httpx.AsyncClient(base_url=NEST_BASE_URL) as client:
+            res = await client.get("/users/search", params={"query": identifier}, headers=self.headers)
+            return res.json() if res.status_code == 200 else None
 
-    def __init__(self, base_url: str = NESTJS_URL) -> None:
-        self.base_url = base_url.rstrip("/")
+    async def create_user(self, name: str, email: str, role: str) -> Dict[str, Any]:
+        async with httpx.AsyncClient(base_url=NEST_BASE_URL) as client:
+            res = await client.post("/users", json={"name": name, "email": email, "role": role}, headers=self.headers)
+            if res.status_code == 409:
+                detail = res.json().get("message", "")
+                if "name" in detail.lower():
+                    return {"success": False, "error": f"A user with the name {name} already exists. User creation was not performed."}
+                return {"success": False, "error": f"A user with the email {email} already exists. User creation was not performed."}
+            if res.status_code >= 400:
+                return {"success": False, "error": res.json().get("message", "User creation failed.")}
+            return {"success": True, "data": res.json()}
 
-    def _get(self, path: str) -> Any:
-        try:
-            response = httpx.get(f"{self.base_url}{path}", timeout=4.0)
-            response.raise_for_status()
-            return response.json()
-        except httpx.HTTPError as error:
-            return {"error": str(error)}
+    async def update_user(self, user_id: str, payload: dict) -> Dict[str, Any]:
+        async with httpx.AsyncClient(base_url=NEST_BASE_URL) as client:
+            res = await client.patch(f"/users/{user_id}", json=payload, headers=self.headers)
+            if res.status_code == 409:
+                conflicting = payload.get("email") or payload.get("name")
+                return {"success": False, "error": f"The identifier {conflicting} is already associated with another user. The update was not performed."}
+            if res.status_code >= 400:
+                return {"success": False, "error": res.json().get("message", "User update failed.")}
+            return {"success": True, "data": res.json()}
 
-    def _send(self, method: str, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
-        try:
-            response = httpx.request(
-                method,
-                f"{self.base_url}{path}",
-                json=payload,
-                timeout=4.0,
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data if isinstance(data, dict) else {"result": data}
-        except httpx.HTTPError as error:
-            return {"error": str(error), "local": True, **(payload or {})}
+    async def delete_user(self, user_id: str) -> Dict[str, Any]:
+        async with httpx.AsyncClient(base_url=NEST_BASE_URL) as client:
+            res = await client.delete(f"/users/{user_id}", headers=self.headers)
+            if res.status_code >= 400:
+                return {"success": False, "error": res.json().get("message", "Failed to delete user.")}
+            return {"success": True}
 
-    def list_users(self) -> list[dict[str, Any]]:
-        data = self._get("/api/users")
-        return data if isinstance(data, list) else []
+    # --- Task & Analytics Endpoints ---
+    async def get_tasks(self, project_id: Optional[str] = None) -> list[dict]:
+        params = {"projectId": project_id} if project_id else {}
+        async with httpx.AsyncClient(base_url=NEST_BASE_URL) as client:
+            res = await client.get("/tasks", params=params, headers=self.headers)
+            res.raise_for_status()
+            return res.json()
 
-    def list_projects(self) -> list[dict[str, Any]]:
-        data = self._get("/api/projects")
-        return data if isinstance(data, list) else []
+    async def create_task(self, title: str, description: str, project_id: str) -> dict:
+        payload = {"title": title, "description": description, "projectId": project_id}
+        async with httpx.AsyncClient(base_url=NEST_BASE_URL) as client:
+            res = await client.post("/tasks", json=payload, headers=self.headers)
+            res.raise_for_status()
+            return res.json()
 
-    def list_tasks(self) -> list[dict[str, Any]]:
-        data = self._get("/api/tasks")
-        return data if isinstance(data, list) else []
+    async def get_project_metrics(self, project_id: str) -> dict:
+        async with httpx.AsyncClient(base_url=NEST_BASE_URL) as client:
+            res = await client.get(f"/projects/{project_id}/analytics", headers=self.headers)
+            res.raise_for_status()
+            return res.json()
 
-    def list_knowledge(self, project_id: str | None = None) -> list[dict[str, Any]]:
-        path = "/api/knowledge"
-        if project_id:
-            path += f"?projectId={project_id}"
-        data = self._get(path)
-        return data if isinstance(data, list) else []
-
-    def create_user(self, name: str, email: str, role: str = "Developer") -> dict[str, Any]:
-        return self._send("POST", "/api/users", {"name": name, "email": email, "role": role})
-
-    def update_user(self, user_id: str, **fields: Any) -> dict[str, Any]:
-        return self._send("PATCH", f"/api/users/{user_id}", fields)
-
-    def delete_user(self, user_id: str) -> dict[str, Any]:
-        return self._send("DELETE", f"/api/users/{user_id}")
-
-    def create_project(self, name: str, description: str, owner_id: str) -> dict[str, Any]:
-        return self._send(
-            "POST",
-            "/api/projects",
-            {"name": name, "description": description, "ownerId": owner_id},
-        )
-
-    def update_project(self, project_id: str, **fields: Any) -> dict[str, Any]:
-        payload = {}
-        if "name" in fields:
-            payload["name"] = fields["name"]
-        if "description" in fields:
-            payload["description"] = fields["description"]
-        if "status" in fields:
-            payload["status"] = fields["status"]
-        if "priority" in fields:
-            payload["priority"] = fields["priority"]
-        return self._send("PATCH", f"/api/projects/{project_id}", payload)
-
-    def delete_project(self, project_id: str) -> dict[str, Any]:
-        return self._send("DELETE", f"/api/projects/{project_id}")
-
-    def create_task(
-        self,
-        project_id: str,
-        title: str,
-        description: str,
-        assignee_id: str | None = None,
-    ) -> dict[str, Any]:
-        payload: dict[str, Any] = {
-            "projectId": project_id,
-            "title": title,
-            "description": description,
-            "status": "todo",
-            "priority": "medium",
-        }
-        if assignee_id:
-            payload["assigneeId"] = assignee_id
-        return self._send("POST", "/api/tasks", payload)
-
-    def update_task(self, task_id: str, **fields: Any) -> dict[str, Any]:
-        payload: dict[str, Any] = {}
-        mapping = {
-            "title": "title",
-            "description": "description",
-            "status": "status",
-            "priority": "priority",
-            "assignee_id": "assigneeId",
-            "project_id": "projectId",
-        }
-        for key, api_key in mapping.items():
-            if key in fields and fields[key] is not None:
-                payload[api_key] = fields[key]
-        return self._send("PATCH", f"/api/tasks/{task_id}", payload)
-
-    def delete_task(self, task_id: str) -> dict[str, Any]:
-        return self._send("DELETE", f"/api/tasks/{task_id}")
-
-    def delete_knowledge(self, doc_id: str) -> dict[str, Any]:
-        return self._send("DELETE", f"/api/knowledge/{doc_id}")
-
-    def analytics(self) -> dict[str, Any]:
-        data = self._get("/api/ai/analytics")
-        return data if isinstance(data, dict) else {"error": "unavailable"}
+nest_client = NestJSClient()

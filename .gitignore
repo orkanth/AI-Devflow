@@ -60,3 +60,6 @@ venv/
 # Env
 .env
 .coverage
+
+#package
+package-lock.json
