@@ -1,0 +1,28 @@
+.shell-container {
+  height: 100vh;
+}
+
+.shell-sidenav {
+  border-right: none;
+  border-radius: 0;
+  transition: width 0.2s ease;
+}
+
+.shell-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--df-content-bg);
+}
+
+.shell-main {
+  flex: 1;
+  padding: 24px;
+  overflow: auto;
+}
+
+@media (max-width: 768px) {
+  .shell-main {
+    padding: 16px;
+  }
+}

@@ -1,0 +1,61 @@
+<header class="page-header">
+  <div>
+    <h1 class="page-title">TDD upload</h1>
+    <p class="page-subtitle">
+      Technical design documents for a project. Choose a project to see its files, or upload a new one.
+    </p>
+  </div>
+  <button mat-flat-button color="primary" type="button" (click)="openUpload()">
+    <mat-icon>upload_file</mat-icon>
+    Upload document
+  </button>
+</header>
+
+<mat-form-field appearance="outline" class="project-filter">
+  <mat-label>Project</mat-label>
+  <mat-select [value]="projectId()" (valueChange)="onProjectChange($event)">
+    <mat-option value="">All projects</mat-option>
+    @for (project of projects(); track project.id) {
+      <mat-option [value]="project.id">{{ project.name }}</mat-option>
+    }
+  </mat-select>
+</mat-form-field>
+
+@if (docs().length === 0) {
+  <p class="empty">No documents for this project yet. Upload a TDD to get started.</p>
+} @else {
+  <table mat-table [dataSource]="docs()">
+    <ng-container matColumnDef="title">
+      <th mat-header-cell *matHeaderCellDef>File</th>
+      <td mat-cell *matCellDef="let doc">
+        <strong>{{ doc.title }}</strong> 
+      </td>
+    </ng-container>
+    <ng-container matColumnDef="source">
+      <th mat-header-cell *matHeaderCellDef>Date</th>
+      <td mat-cell *matCellDef="let doc">{{ doc.createdAt | date:'dd - MM  - yyyy' }}</td>
+    </ng-container>
+    <!-- <ng-container matColumnDef="preview">
+      <th mat-header-cell *matHeaderCellDef>Preview</th>
+      <td mat-cell *matCellDef="let doc">
+        <div class="cell-desc">{{ doc.content }}</div>
+      </td>
+    </ng-container> -->
+    <ng-container matColumnDef="actions">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let doc">
+        <button
+          mat-icon-button
+          type="button"
+          class="df-action-delete"
+          matTooltip="Delete"
+          (click)="remove(doc)"
+        >
+          <mat-icon>delete</mat-icon>
+        </button>
+      </td>
+    </ng-container>
+    <tr mat-header-row *matHeaderRowDef="columns"></tr>
+    <tr mat-row *matRowDef="let row; columns: columns"></tr>
+  </table>
+}

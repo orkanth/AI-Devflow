@@ -1,0 +1,89 @@
+.sidebar {
+  height: 100%;
+  background: var(--df-sidebar-bg);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 16px 16px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #ffffff;
+  border-bottom: 1px solid #ffffff;
+
+  mat-icon {
+    color: #ffffff;
+  }
+}
+
+.sidebar__nav {
+  flex: 1;
+  padding: 8px;
+  overflow-y: auto;
+
+  ::ng-deep .mdc-list-item {
+    border-radius: 0;
+    color: #ffffff;
+
+    .mdc-list-item__primary-text,
+    .mat-mdc-list-item-title {
+      color: #ffffff;
+    }
+
+    mat-icon {
+      color: #ffffff;
+    }
+  }
+}
+
+.sidebar__stack {
+  margin: 0;
+  padding: 12px 16px 16px;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.85);
+  border-top: 1px solid #ffffff;
+}
+
+.sidebar__nav a {
+  color: #ffffff;
+  border-radius: 0;
+  margin-bottom: 0;
+  text-decoration: none;
+
+  mat-icon {
+    color: #ffffff;
+  }
+
+  &:hover:not(.sidebar__link--active) {
+    background: rgba(255, 255, 255, 0.12);
+  }
+}
+
+.sidebar__link--active {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+
+  mat-icon {
+    color: #ffffff;
+  }
+}
+
+.sidebar--collapsed {
+  .sidebar__brand {
+    justify-content: center;
+    padding: 20px 8px 16px;
+  }
+
+  .sidebar__nav {
+    padding: 8px 4px;
+  }
+
+  .sidebar__nav a {
+    justify-content: center;
+  }
+}

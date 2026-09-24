@@ -1,0 +1,172 @@
+<header class="page-header">
+  <div>
+    <h1 class="page-title">Agent prompt</h1>
+    <p class="page-subtitle">
+      Run example prompts to create a task, update a task, create a project, or
+      generate tasks from uploaded TDD documents. Progress updates while the agent works.
+      @if (aiStatus()?.llm?.enabled) {
+        GPT is on ({{ aiStatus()?.llm?.model }}).
+      } @else {
+        GPT is optional; the supervisor still routes and calls NestJS.
+      }
+    </p>
+  </div>
+</header>
+
+<mat-card class="form-card">
+  <mat-card-content>
+    <form class="stack" (ngSubmit)="send()">
+      <!-- Project Context Dropdown (Optional) -->
+      @if (projects().length) {
+        <mat-form-field appearance="outline">
+          <mat-label>Project Context (Optional)</mat-label>
+          <mat-select [(ngModel)]="projectId" name="projectId" [disabled]="busy()">
+            <mat-option [value]="''">None / No Project</mat-option>
+            @for (project of projects(); track project.id) {
+              <mat-option [value]="project.id">{{ project.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      }
+
+      <mat-form-field appearance="outline">
+        <mat-label>Prompt</mat-label>
+        <textarea
+          matInput
+          rows="4"
+          [(ngModel)]="message"
+          name="message"
+          [disabled]="busy()"
+          placeholder='Example: Create task "Write agent prompt notes"'
+        ></textarea>
+      </mat-form-field>
+
+      <button
+        mat-flat-button
+        color="primary"
+        type="submit"
+        [disabled]="busy() || !message.trim()"
+      >
+        <mat-icon>smart_toy</mat-icon>
+        Run agent
+      </button>
+    </form>
+  </mat-card-content>
+</mat-card>
+
+@if (busy()) {
+  <mat-progress-bar mode="indeterminate" />
+}
+
+@if (steps().length) {
+  <mat-card class="form-card">
+    <mat-card-header>
+      <mat-card-title>Progress</mat-card-title>
+      <mat-card-subtitle>
+        @if (busy()) {
+          Agent is working…
+        } @else if (error()) {
+          Stopped with an error
+        } @else {
+          Complete
+        }
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <ol class="progress">
+        @for (step of steps(); track step.id) {
+          <li class="progress__item" [attr.data-status]="step.status">
+            <mat-icon class="progress__icon">{{ stepIcon(step.status) }}</mat-icon>
+            <div>
+              <p class="progress__label">{{ step.label }}</p>
+              <p class="progress__detail">{{ step.detail }}</p>
+            </div>
+          </li>
+        }
+      </ol>
+    </mat-card-content>
+  </mat-card>
+}
+
+@if (error(); as message) {
+  <p class="error">{{ message }}</p>
+}
+@if (result(); as chat) {
+  <mat-card class="form-card">
+    <mat-card-header>
+      <mat-card-title>Answer</mat-card-title> 
+    </mat-card-header>
+
+    <mat-card-content>
+      <!-- PROMINENT MISSING FIELDS WARNING -->
+      @if (chat.status === 'requires_action' && chat.action_type === 'missing_info') {
+        <div class="action-box action-box--warning">
+          <div class="action-box__header">
+            <mat-icon class="action-box__icon">warning_amber</mat-icon>
+            <strong>Action Required: Incomplete Request</strong>
+          </div>
+          
+          <p class="action-box__desc">
+            The user cannot be created until the missing fields are provided.
+          </p>
+
+          <span class="action-box__label">Missing Fields:</span>
+
+          <div class="action-box__chips">
+            @for (field of chat.missing_fields; track field) {
+              <button
+                type="button"
+                mat-flat-button
+                class="chip-button"
+                (click)="addMissingField(field)"
+              >
+                <mat-icon>add_circle_outline</mat-icon>
+                Provide {{ field | titlecase }}
+              </button>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- PROMINENT CONFIRMATION PROMPT -->
+      @if (chat.requires_confirmation || chat.action_type === 'confirmation') {
+        <div class="action-box action-box--danger">
+          <div class="action-box__header">
+            <mat-icon class="action-box__icon">report</mat-icon>
+            <strong>Confirm Deletion</strong>
+          </div>
+          <p class="action-box__desc">
+            Are you sure you want to proceed with this operation?
+          </p>
+          <div class="action-box__actions">
+            <button mat-flat-button color="warn" (click)="confirmAction('Yes')">
+              <mat-icon>delete_forever</mat-icon> Yes, Delete
+            </button>
+            <button mat-stroked-button (click)="confirmAction('No')">
+              <mat-icon>cancel</mat-icon> No, Cancel
+            </button>
+          </div>
+        </div>
+      }
+
+      <!-- Response Text -->
+      <div class="answer-text">
+        <p>{{ chat.answer }}</p>
+      </div>
+
+      <!-- Traces -->
+      @if (chat.trace?.length) {
+        <ul class="trace">
+          @for (entry of chat.trace; track $index) {
+            <li>
+              <strong>{{ entry.agent }}</strong> — {{ entry.reason }}
+              @for (call of entry.toolCalls; track $index) {
+                <div class="trace__tool">{{ call.tool }}</div>
+              }
+            </li>
+          }
+        </ul>
+      }
+    </mat-card-content>
+  </mat-card>
+}

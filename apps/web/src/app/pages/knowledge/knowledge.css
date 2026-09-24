@@ -1,0 +1,30 @@
+.form-card,
+mat-card {
+  border: 1px solid #e2e8f0;
+  box-shadow: none;
+}
+
+.form-card {
+  margin-bottom: 16px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.grow {
+  flex: 1;
+}
+
+.page-toolbar button {
+  height: 56px;
+  margin-top: 4px;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}

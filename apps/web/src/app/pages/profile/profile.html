@@ -1,0 +1,63 @@
+<header class="page-header">
+  <div>
+    <h1 class="page-title">Profile</h1>
+    <p class="page-subtitle">Your account details and assigned work</p>
+  </div>
+  @if (user(); as profile) {
+    <button mat-stroked-button type="button" (click)="edit(profile)">Edit profile</button>
+  }
+</header>
+
+@if (user(); as profile) {
+  <div class="grid">
+    <mat-card>
+      <div class="hero">
+        <div class="avatar">{{ initial() }}</div>
+        <div>
+          <h2>{{ profile.name }}</h2>
+          <p>{{ profile.email }}</p>
+          <mat-chip>{{ profile.role }}</mat-chip>
+        </div>
+      </div>
+    </mat-card>
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Account details</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <mat-list>
+          <mat-list-item>
+            <mat-icon matListItemIcon>badge</mat-icon>
+            <span matListItemTitle>Full name</span>
+            <span matListItemLine>{{ profile.name }}</span>
+          </mat-list-item>
+          <mat-divider />
+          <mat-list-item>
+            <mat-icon matListItemIcon>mail</mat-icon>
+            <span matListItemTitle>Email</span>
+            <span matListItemLine>{{ profile.email }}</span>
+          </mat-list-item>
+          <mat-divider />
+          <mat-list-item>
+            <mat-icon matListItemIcon>admin_panel_settings</mat-icon>
+            <span matListItemTitle>Role</span>
+            <span matListItemLine>{{ profile.role }}</span>
+          </mat-list-item>
+        </mat-list>
+      </mat-card-content>
+    </mat-card>
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>My task summary</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="stats">
+          <div><strong>{{ stats().total }}</strong><span>Total</span></div>
+          <div><strong>{{ stats().todo }}</strong><span>To do</span></div>
+          <div><strong>{{ stats().in_progress }}</strong><span>In progress</span></div>
+          <div><strong>{{ stats().done }}</strong><span>Done</span></div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+}

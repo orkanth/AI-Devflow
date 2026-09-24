@@ -1,0 +1,9 @@
+    <mat-card class="stat-card">
+      <div class="stat-card__icon" [class]="'stat-card__icon--' + color()">
+        <mat-icon>{{ icon() }}</mat-icon>
+      </div>
+      <div class="stat-card__content">
+        <span class="stat-card__value">{{ value() }}</span>
+        <span class="stat-card__label">{{ label() }}</span>
+      </div>
+    </mat-card>
