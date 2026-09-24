@@ -15,6 +15,7 @@ import {
 } from '../../services/api.service';
 import { 
   ChatResult, AiApiService } from '../../services/ai-api.service';
+import { TitleCasePipe } from '@angular/common';
 
 export interface ProgressStep {
   id: string;
