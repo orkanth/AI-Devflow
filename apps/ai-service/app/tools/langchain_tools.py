@@ -25,20 +25,43 @@ async def create_user_tool(name: str, email: str, role: str) -> str:
 
 @tool
 async def update_user_tool(
-    user_id: str,
+    identifier: str,
     name: Optional[str] = None,
     email: Optional[str] = None,
-    role: Optional[str] = None
+    role: Optional[str] = None,
 ) -> str:
-    """Updates user fields. Returns update confirmation or duplicate conflict error."""
+    """Updates an existing user identified by their current name OR current email address.
+    print(f"\n>>> [TOOL CALLED] update_user_tool with: identifier='{identifier}', name='{name}', email='{email}', role='{role}'")
+    Args:
+        identifier: The target user's existing name OR email address (e.g. 'revavi', 'Ravi', 'orkanth@yop.com'). Do NOT ask for a numeric or UUID user_id.
+        name: The new name to set (optional).
+        email: The new email to set (optional).
+        role: The new role to set (optional, e.g. 'Manager', 'Admin', 'Developer').
+    """
     payload = {k: v for k, v in {"name": name, "email": email, "role": role}.items() if v is not None}
     if not payload:
-        return "No fields provided to update."
-    result = await nest_client.update_user(user_id, payload)
+        return "No fields provided to update. Please specify what you want to change (name, email, or role)."
+
+    # Call NestJS update by identifier (resolves either email or name)
+    result = await nest_client.update_user_by_identifier(
+        identifier=identifier,
+        name=name,
+        email=email,
+        role=role,
+    )
+    
     if not result.get("success"):
         return result.get("error", "Failed to update user.")
-    return f"User {user_id} updated successfully."
 
+    updated = result.get("data", {})
+    return (
+        f"User <b>{identifier}</b> updated successfully: "
+        f"Name: <b>{updated.get('name')}</b>, "
+        f"Email: <b>{updated.get('email')}</b>, "
+        f"Role: <b>{updated.get('role')}</b>."
+    )
+    
+    
 @tool
 async def delete_user_tool(user_id: str, user_name: str) -> str:
     """Deletes the user permanently. Only invoke after explicit confirmation."""

@@ -46,6 +46,41 @@ EXECUTION RULES:
 - If and ONLY if a field is absent, list only the genuinely missing fields:
   "I can create the user, but the following information is required:
   - [Missing Field]"
+  
+  
+  
+  2. FOR UPDATING USERS:
+   - Identify the TARGET USER: Can be specified by current name or current email (this is `identifier`).
+   - Identify the NEW VALUES to change:
+     * new_role (e.g., 'to Admin', 'role Manager')
+     * new_email (e.g., 'to newemail@gmail.com', 'email ork@yop.com')
+     * new_name (e.g., 'rename to Ravi Kanth', 'change name to John')
+   - Call `update_user_tool(identifier=..., new_name=..., new_email=..., new_role=...)`.
+
+CRITICAL RENAMING PATTERNS:
+- "update user name [OldName] to [NewName]"
+  -> identifier="[OldName]", name="[NewName]"
+- "rename user [OldName] to [NewName]"
+  -> identifier="[OldName]", name="[NewName]"
+- "change name from [OldName] to [NewName]"
+  -> identifier="[OldName]", name="[NewName]"
+  
+EXAMPLES OF UPDATES:
+- "Update user Ravi with role Admin"
+  -> update_user_tool(identifier="Ravi", new_role="Admin")
+- "Change role to Developer for user orkanth@gmail.com"
+  -> update_user_tool(identifier="orkanth@gmail.com", new_role="Developer")
+- "Update email to neworkanth@gmail.com for user Ravi kanth"
+  -> update_user_tool(identifier="Ravi kanth", new_email="neworkanth@gmail.com")
+  - "Update user name Koundeep to orevathi"
+  -> update_user_tool(identifier="Koundeep", name="orevathi")
+- "Update user orkanth@gmail.com name to Ravi Kanth and role Lead"
+  -> update_user_tool(identifier="orkanth@gmail.com", new_name="Ravi Kanth", new_role="Lead")
+  
+  RITICAL TOOL RESPONSE RULES:
+1. When calling `create_user_tool` or `update_user_tool`:
+   - If the tool returns a conflict or error message (e.g. "already exists", "not found"), **OUTPUT THAT EXACT MESSAGE VERBATIM**.
+   - NEVER hide errors behind generic statements.
 """
 
 tools = [lookup_user_tool, create_user_tool, update_user_tool, delete_user_tool]

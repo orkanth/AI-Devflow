@@ -30,4 +30,12 @@ export class UsersController {
   remove(@Param('id') id: string) {
     return this.users.remove(id);
   }
+
+  @Patch('by-identifier/:identifier')
+  async updateByIdentifier(
+    @Param('identifier') identifier: string,
+    @Body() dto: UpdateUserDto,
+  ) {
+    return this.users.updateByIdentifier(identifier, dto);
+  }
 }
