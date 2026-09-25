@@ -18,13 +18,10 @@ async def lookup_user_tool(identifier: str) -> str:
 @tool
 async def create_user_tool(name: str, email: str, role: str) -> str:
     """Creates a user. Returns confirmation message or duplicate validation error."""
-    try:
-        result = await nest_client.create_user(name=name, email=email, role=role)
-        if not result or not result.get("success"):
-            return result.get("error", "Failed to create user due to an unknown API error.")
-        return f"User {name} with role {role} was created successfully."
-    except Exception as e:
-        return f"Failed to execute user creation tool: {str(e)}"
+    result = await nest_client.create_user(name=name, email=email, role=role)
+    if not result.get("success"):
+        return result.get("error", "Failed to create user.")
+    return f"User {name} with role {role} and email {email} was created successfully."
 
 @tool
 async def update_user_tool(

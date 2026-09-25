@@ -1,6 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike } from 'typeorm';
+import { Repository, ILike, Not } from 'typeorm';
 import { User } from './user.entity';
 import { CreateUserDto, UpdateUserDto } from './users.dto';
 
@@ -44,14 +49,85 @@ export class UsersService {
     });
   }
 
+  async findByEmail(email: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { email: ILike(email.trim()) },
+    });
+  }
+
   async create(dto: CreateUserDto): Promise<User> {
-    const user = this.userRepository.create(dto);
+    const trimmedEmail = dto.email.trim();
+    const trimmedName = dto.name.trim();
+
+    // 1. Check duplicate email
+    const existingEmail = await this.userRepository.findOne({
+      where: { email: ILike(trimmedEmail) },
+    });
+    if (existingEmail) {
+      throw new ConflictException(
+        `A user with the email <b>${trimmedEmail}</b> already exists. User creation was not performed.`
+      );
+    }
+
+    // 2. Check duplicate name
+    const existingName = await this.userRepository.findOne({
+      where: { name: ILike(trimmedName) },
+    });
+    if (existingName) {
+      throw new ConflictException(
+        `A user with the name <b>${trimmedName}</b> already exists. User creation was not performed.`
+      );
+    }
+
+    const user = this.userRepository.create({
+      ...dto,
+      name: trimmedName,
+      email: trimmedEmail,
+    });
     return this.userRepository.save(user);
   }
 
   async update(id: string, dto: UpdateUserDto): Promise<User> {
     const user = await this.findOne(id);
-    Object.assign(user, dto);
+
+    // 1. Check duplicate email (excluding this user)
+    if (dto.email) {
+      const trimmedEmail = dto.email.trim();
+      const conflictEmail = await this.userRepository.findOne({
+        where: {
+          email: ILike(trimmedEmail),
+          id: Not(id),
+        },
+      });
+      if (conflictEmail) {
+        throw new ConflictException(
+          `The identifier <b>${trimmedEmail}</b> is already associated with another user. The update was not performed.`
+        );
+      }
+      user.email = trimmedEmail;
+    }
+
+    // 2. Check duplicate name (excluding this user)
+    if (dto.name) {
+      const trimmedName = dto.name.trim();
+      const conflictName = await this.userRepository.findOne({
+        where: {
+          name: ILike(trimmedName),
+          id: Not(id),
+        },
+      });
+      if (conflictName) {
+        throw new ConflictException(
+          `The identifier <b>${trimmedName}</b> is already associated with another user. The update was not performed.`
+        );
+      }
+      user.name = trimmedName;
+    }
+
+    if (dto.role) {
+      user.role = dto.role;
+    }
+
     return this.userRepository.save(user);
   }
 
@@ -61,7 +137,6 @@ export class UsersService {
       throw new BadRequestException('Cannot delete the last user');
     }
 
-    // Using entity remove instead of delete(id) triggers TypeORM cascade hooks if configured
     const user = await this.findOne(id);
     await this.userRepository.remove(user);
 

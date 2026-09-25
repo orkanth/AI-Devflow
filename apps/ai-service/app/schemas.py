@@ -38,6 +38,7 @@ class ChatResultResponse(BaseModel):
     
     # UI Action Metadata
     status: Literal["completed", "requires_action", "error"] = "completed"
-    action_type: Literal["missing_info", "confirmation", "none"] = "none"
+    # Added "duplicate" to allowed action types
+    action_type: Literal["missing_info", "confirmation", "duplicate", "none"] = "none"
     missing_fields: Optional[List[str]] = None
     requires_confirmation: bool = False
