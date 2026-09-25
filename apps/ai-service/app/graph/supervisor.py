@@ -1,4 +1,4 @@
-# app/graph/supervisor.py
+# apps/ai-service/app/graph/supervisor.py
 from typing import Annotated, Literal, Sequence, TypedDict
 import operator
 from pydantic import BaseModel
@@ -24,28 +24,29 @@ def build_graph():
     llm = get_llm(temperature=0)
     
     system_prompt = (
-        "You are the DevFlow AI supervisor managing workers: {members}.\n"
-        "- UserAgent: For creating, updating, deleting, or looking up users, roles, or emails.\n"
-        "- TaskAgent: For creating, listing, or modifying tasks and projects.\n"
-        "- RAGAgent: For knowledge base search or documentation queries.\n"
-        "- AnalyticsAgent: For project metrics and completion status.\n\n"
-        "IMPORTANT RULES:\n"
-        "1. If a worker has already produced an answer or asked the user for clarification/confirmation, choose 'FINISH'.\n"
-        "2. Do not re-route to a worker if the request was already addressed.\n"
-        "Who should act next?"
+        "You are the DevFlow AI supervisor managing these specialized workers: {members}.\n\n"
+        "ROUTING RULES:\n"
+        "1. ANY query regarding users, creating users, updating users, deleting users, roles, or user emails "
+        "MUST be routed to 'UserAgent'. NEVER finish directly on user operations without routing to UserAgent first.\n"
+        "2. Queries regarding tasks or projects go to 'TaskAgent'.\n"
+        "3. Queries searching documentation/knowledge base go to 'RAGAgent'.\n"
+        "4. Queries about project analytics or sprint velocity go to 'AnalyticsAgent'.\n"
+        "5. ONLY return 'FINISH' if one of the workers has ALREADY responded to the user in the latest messages.\n\n"
+        "Given the conversation above, who should act next?"
     )
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", system_prompt),
         ("placeholder", "{messages}"),
-        ("system", "Select one next worker: {options}")
+        ("system", "Choose one worker or FINISH: {options}")
     ]).partial(options=str(MEMBERS + ["FINISH"]), members=", ".join(MEMBERS))
 
     supervisor_chain = prompt | llm.with_structured_output(RouteResponse)
 
     async def supervisor_node(state: AgentState):
-        # If the last message is an AI message from one of the agents, conclude the cycle
         messages = state.get("messages", [])
+        
+        # If the last message is from an assistant (and not calling a tool), the agent finished its turn
         if messages and isinstance(messages[-1], AIMessage) and not getattr(messages[-1], "tool_calls", None):
             return {"next_node": "FINISH"}
 
@@ -75,7 +76,6 @@ def build_graph():
         workflow.add_edge(member, "supervisor")
 
     workflow.set_entry_point("supervisor")
-    
     return workflow.compile(checkpointer=MemorySaver())
 
 app_graph = build_graph()

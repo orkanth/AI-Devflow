@@ -112,17 +112,9 @@
 
           <span class="action-box__label">Missing Fields:</span>
 
-          <div class="action-box__chips">
+          <div class="strong">
             @for (field of chat.missing_fields; track field) {
-              <button
-                type="button"
-                mat-flat-button
-                class="chip-button"
-                (click)="addMissingField(field)"
-              >
-                <mat-icon>add_circle_outline</mat-icon>
-                Provide {{ field | titlecase }}
-              </button>
+             {{ field | titlecase }}
             }
           </div>
         </div>
@@ -155,7 +147,7 @@
       </div>
 
       <!-- Traces -->
-      @if (chat.trace?.length) {
+      <!-- @if (chat.trace?.length) {
         <ul class="trace">
           @for (entry of chat.trace; track $index) {
             <li>
@@ -166,7 +158,7 @@
             </li>
           }
         </ul>
-      }
+      } -->
     </mat-card-content>
   </mat-card>
 }

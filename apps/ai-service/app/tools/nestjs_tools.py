@@ -2,7 +2,7 @@ import os
 import httpx
 from typing import Optional, Dict, Any
 
-NEST_BASE_URL = os.getenv("NESTJS_API_URL", "http://localhost:3000/api")
+NEST_BASE_URL = os.getenv("NESTJS_API_URL", "http://localhost:3333/api")
 INTERNAL_KEY = os.getenv("INTERNAL_SERVICE_KEY", "dev-secret-key")
 
 class NestJSClient:
