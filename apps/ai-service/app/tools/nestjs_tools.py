@@ -102,7 +102,19 @@ class NestJSClient:
                 data = await self._safe_parse_json(res)
                 return {"success": False, "error": data.get("message", "User update failed.")}
             return {"success": True, "data": res.json()}
-
+    async def find_user(self, identifier: str) -> Optional[Dict[str, Any]]:
+        clean_id = identifier.strip().strip('"').strip("'")
+        url = f"{self.base_url}/users/search"
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.get(url, params={"query": clean_id}, headers=self.headers)
+                if res.status_code == 200:
+                    return await self._safe_parse_json(res)
+                return None
+        except Exception as e:
+            print(f"[ERROR] find_user failed: {e}")
+            return None
+        
     async def delete_user(self, user_id: str) -> Dict[str, Any]:
         async with httpx.AsyncClient(base_url=self.base_url) as client:
             res = await client.delete(f"/users/{user_id}", headers=self.headers)

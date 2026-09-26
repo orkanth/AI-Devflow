@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { CreateUserDto, UpdateUserDto } from './users.dto';
 import { UsersService } from './users.service';
 
@@ -11,24 +22,24 @@ export class UsersController {
     return this.users.findAll();
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.users.findOne(id);
+  // --- STATIC / SPECIFIC ROUTES (MUST COME FIRST) ---
+
+  @Get('search')
+  async search(@Query('query') query: string) {
+    if (!query) {
+      throw new BadRequestException('Query parameter is required');
+    }
+    const user = await this.users.findByIdentifier(query);
+    if (!user) {
+      throw new BadRequestException(`User "${query}" not found.`);
+    }
+    return user;
   }
 
-  @Post()
-  create(@Body() dto: CreateUserDto) {
-    return this.users.create(dto);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
-    return this.users.update(id, dto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.users.remove(id);
+  @Get('by-identifier/:identifier')
+  async findByIdentifier(@Param('identifier') identifier: string) {
+    const cleanId = decodeURIComponent(identifier).trim();
+    return this.users.findByIdentifier(cleanId);
   }
 
   @Patch('by-identifier/:identifier')
@@ -36,6 +47,32 @@ export class UsersController {
     @Param('identifier') identifier: string,
     @Body() dto: UpdateUserDto,
   ) {
-    return this.users.updateByIdentifier(identifier, dto);
+    const cleanId = decodeURIComponent(identifier).trim();
+    return this.users.updateByIdentifier(cleanId, dto);
+  }
+
+  @Post()
+  create(@Body() dto: CreateUserDto) {
+    return this.users.create(dto);
+  }
+
+  // --- PARAMETRIC UUID ROUTES (MUST COME LAST) ---
+
+  @Get(':id')
+  findOne(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.users.findOne(id);
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateUserDto,
+  ) {
+    return this.users.update(id, dto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.users.remove(id);
   }
 }

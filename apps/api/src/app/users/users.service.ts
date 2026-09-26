@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike, Not } from 'typeorm';
+import { Repository, ILike, Not, Raw } from 'typeorm';
 import { User } from './user.entity';
 import { CreateUserDto, UpdateUserDto } from './users.dto';
 
@@ -57,12 +57,44 @@ export class UsersService {
 
   // Find user by either email OR name
   async findByIdentifier(identifier: string): Promise<User | null> {
-    const clean = identifier.trim();
-    return this.userRepository.findOne({
-      where: [{ email: ILike(clean) }, { name: ILike(clean) }],
+  const clean = identifier.trim().replace(/^["']|["']$/g, '');
+
+  // 1. Try exact case-insensitive match first
+  let user = await this.userRepository.findOne({
+    where: [
+      {
+        name: Raw(alias => `LOWER(TRIM(${alias})) = LOWER(:query)`, {
+          query: clean,
+        }),
+      },
+      {
+        email: Raw(alias => `LOWER(TRIM(${alias})) = LOWER(:query)`, {
+          query: clean,
+        }),
+      },
+    ],
+  });
+
+  // 2. Fall back to contains/substring match (e.g., 'Reva' matching 'revavi')
+  if (!user) {
+    user = await this.userRepository.findOne({
+      where: [
+        {
+          name: Raw(alias => `LOWER(TRIM(${alias})) LIKE LOWER(:pattern)`, {
+            pattern: `%${clean}%`,
+          }),
+        },
+        {
+          email: Raw(alias => `LOWER(TRIM(${alias})) LIKE LOWER(:pattern)`, {
+            pattern: `%${clean}%`,
+          }),
+        },
+      ],
     });
   }
 
+  return user;
+}
   async create(dto: CreateUserDto): Promise<User> {
     const trimmedEmail = dto.email.trim();
     const trimmedName = dto.name.trim();

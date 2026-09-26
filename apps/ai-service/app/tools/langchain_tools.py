@@ -9,12 +9,29 @@ from app.vectorstore import get_vector_store
 
 @tool
 async def lookup_user_tool(identifier: str) -> str:
-    """Finds user by name or email. Returns user details or an error message."""
-    user = await nest_client.find_user(identifier)
+    """Finds an existing user by their name or email address and returns their profile details.
+    
+    Args:
+        identifier: The target user's current name or email (e.g., 'Ravi', 'revavi', 'orkanth@yopmail.com').
+    """
+    clean_identifier = identifier.strip().strip('"').strip("'")
+    
+    user = await nest_client.find_user(clean_identifier)
     if not user:
-        return f"No user found matching '{identifier}'."
-    return f"User ID: {user.get('id')} | Name: {user.get('name')} | Email: {user.get('email')} | Role: {user.get('role')}"
+        return f"A user with the identifier <b>{clean_identifier}</b> was not found."
 
+    user_id = user.get("id", "N/A")
+    name = user.get("name", "N/A")
+    email = user.get("email", "N/A")
+    role = user.get("role", "N/A")
+
+    return (
+        f"User details for <b>{name}</b>:<br/>"
+        f"• <b>ID:</b> {user_id}<br/>"
+        f"• <b>Name:</b> {name}<br/>"
+        f"• <b>Email:</b> {email}<br/>"
+        f"• <b>Role:</b> {role}"
+    )
 @tool
 async def create_user_tool(name: str, email: str, role: str) -> str:
     """Creates a user. Returns confirmation message or duplicate validation error."""
