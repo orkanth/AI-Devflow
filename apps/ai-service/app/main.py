@@ -25,7 +25,7 @@ async def health_check():
         "service": "ai-service",
         "llm": {
             "enabled": True,
-            "model": os.getenv("OPENAI_MODEL", "gpt-4o")
+            "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         }
     }
 
@@ -93,7 +93,6 @@ async def chat_endpoint(req: ChatRequest):
     user_prompt = req.get_text()
     inputs = {"messages": [HumanMessage(content=user_prompt)]}
     config = {"configurable": {"thread_id": req.thread_id or "default"}}
-
     result = await app_graph.ainvoke(inputs, config=config)
     return parse_chat_response(result, user_prompt)
 

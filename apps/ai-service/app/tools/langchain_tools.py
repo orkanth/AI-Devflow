@@ -7,6 +7,7 @@ from app.vectorstore import get_vector_store
 # 1. USER MANAGEMENT TOOLS
 # ==========================================
 
+# To get the user details, we can use the NestJS API to fetch user information by their name or email address. This tool will return a formatted string with the user's profile details.
 @tool
 async def lookup_user_tool(identifier: str) -> str:
     """Finds an existing user by their name or email address and returns their profile details.
@@ -32,6 +33,8 @@ async def lookup_user_tool(identifier: str) -> str:
         f"• <b>Email:</b> {email}<br/>"
         f"• <b>Role:</b> {role}"
     )
+    
+# Create a new user in the system. This tool will call the NestJS API to create a user with the provided name, email, and role. It will return a confirmation message or an error if the user already exists.    
 @tool
 async def create_user_tool(name: str, email: str, role: str) -> str:
     """Creates a user. Returns confirmation message or duplicate validation error."""
@@ -40,6 +43,7 @@ async def create_user_tool(name: str, email: str, role: str) -> str:
         return result.get("error", "Failed to create user.")
     return f"User {name} with role {role} and email {email} was created successfully."
 
+#update user by identifier (name or email) tool
 @tool
 async def update_user_tool(
     identifier: str,
@@ -79,7 +83,7 @@ async def update_user_tool(
     )
     
        
-
+# Delete a user by their name or email address. This tool will call the NestJS API to delete the user and return a confirmation message or an error if the user does not exist.
 @tool
 async def delete_user_tool(
     identifier: str,
@@ -110,6 +114,8 @@ async def delete_user_tool(
     deleted_info = result.get("data", {})
     name = deleted_info.get("name", target)
     return f"User <b>{name}</b> has been deleted successfully."
+
+
 # ==========================================
 # 2. TASK & PROJECT TOOLS
 # ==========================================
