@@ -75,4 +75,9 @@ export class UsersController {
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.users.remove(id);
   }
+  @Delete('by-identifier/:identifier')
+  async removeByIdentifier(@Param('identifier') identifier: string) {
+    const cleanId = decodeURIComponent(identifier).trim();
+    return this.users.removeByIdentifier(cleanId);
+  }
 }

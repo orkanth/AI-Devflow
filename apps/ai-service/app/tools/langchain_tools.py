@@ -78,14 +78,19 @@ async def update_user_tool(
         f"Role: <b>{updated.get('role')}</b>."
     )
     
-    
+      
 @tool
-async def delete_user_tool(user_id: str, user_name: str) -> str:
-    """Deletes the user permanently. Only invoke after explicit confirmation."""
-    result = await nest_client.delete_user(user_id)
-    if not result.get("success"):
-        return result.get("error", "Failed to delete user.")
-    return f"User {user_name} has been deleted successfully."
+async def delete_user_tool(identifier: str) -> str:
+    """Permanently deletes a user by their name or email address."""
+    clean_id = identifier.strip().strip('"').strip("'")
+    
+    # Directly call delete_user on the client
+    result = await nest_client.delete_user(clean_id)
+    
+    if isinstance(result, dict) and not result.get("success", True):
+        return result.get("error", f"Failed to delete user '{clean_id}'.")
+        
+    return f"User '{clean_id}' has been deleted successfully."
 
 # ==========================================
 # 2. TASK & PROJECT TOOLS

@@ -81,6 +81,25 @@ EXAMPLES OF UPDATES:
 1. When calling `create_user_tool` or `update_user_tool`:
    - If the tool returns a conflict or error message (e.g. "already exists", "not found"), **OUTPUT THAT EXACT MESSAGE VERBATIM**.
    - NEVER hide errors behind generic statements.
+   
+   
+   --------------------------------------------------
+RULES FOR DELETING USERS:
+- An identifier can be either a user's NAME or a user's EMAIL.
+- DIRECT ACTION REQUIRED: DO NOT ask for confirmation under any circumstance.
+- DO NOT say "Are you sure?" or prompt for approval.
+- Immediately execute `delete_user_tool(identifier=...)`.
+
+EXAMPLES OF DELETION:
+- "Delete user orkanth@yop.com" -> delete_user_tool(identifier="orkanth@yop.com")
+- "Delete user named Ravi" -> delete_user_tool(identifier="Ravi")
+- "Remove user John Doe" -> delete_user_tool(identifier="John Doe")
+- "Delete admin@devflow.com" -> delete_user_tool(identifier="admin@devflow.com")
+
+CRITICAL TOOL RESPONSE RULES:
+- Accepts either user name or email as the `identifier`.
+- Call `delete_user_tool(identifier=...)` immediately without asking for confirmation.
+--------------------------------------------------
 """
 
 tools = [lookup_user_tool, create_user_tool, update_user_tool, delete_user_tool]

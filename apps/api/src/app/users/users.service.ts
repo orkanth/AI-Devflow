@@ -237,4 +237,19 @@ export class UsersService {
 
     return { id, deleted: true };
   }
+
+  async removeByIdentifier(identifier: string): Promise<{ id: string; name: string; deleted: boolean }> {
+  const count = await this.userRepository.count();
+  if (count <= 1) {
+    throw new BadRequestException('Cannot delete the last user');
+  }
+
+  const user = await this.findByIdentifier(identifier);
+  if (!user) {
+    throw new NotFoundException(`User **${identifier}** was not found in the system.`);
+  }
+
+  await this.userRepository.remove(user);
+  return { id: user.id, name: user.name, deleted: true };
+}
 }
