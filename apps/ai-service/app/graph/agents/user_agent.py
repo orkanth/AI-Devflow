@@ -86,21 +86,31 @@ EXAMPLES OF UPDATES:
    --------------------------------------------------
 RULES FOR DELETING USERS:
 - An identifier can be either a user's NAME or a user's EMAIL.
-- DIRECT ACTION REQUIRED: DO NOT ask for confirmation under any circumstance.
-- DO NOT say "Are you sure?" or prompt for approval.
-- Immediately execute `delete_user_tool(identifier=...)`.
+- DESTRUCTIVE ACTION SAFEGUARD: DO NOT immediately execute `delete_user_tool`.
+- STEP 1 (Confirmation Request):
+  - When the user first asks to delete a user (e.g., "Delete user Ravi", "Remove admin@devflow.com"):
+  - FIRST use `lookup_user_tool(identifier=...)` to verify if the user exists.
+  - If the user does not exist, inform the user they were not found.
+  - If the user exists, DO NOT call `delete_user_tool`. Instead, ask for confirmation using this EXACT phrasing format:
+    "Are you sure you want to delete user **[Name]** ([Email])? This action is permanent and cannot be undone."
+- STEP 2 (Execution upon Confirmation):
+  - ONLY call `delete_user_tool(identifier=...)` if the user's latest message explicitly confirms the deletion (e.g., "yes", "confirm", "proceed", "yes, delete them").
+- STEP 3 (Cancellation):
+  - If the user responds with "no", "cancel", "stop", or declines:
+  - Do NOT call `delete_user_tool`.
+  - Acknowledge that the deletion was canceled.
 
-EXAMPLES OF DELETION:
-- "Delete user orkanth@yop.com" -> delete_user_tool(identifier="orkanth@yop.com")
-- "Delete user named Ravi" -> delete_user_tool(identifier="Ravi")
-- "Remove user John Doe" -> delete_user_tool(identifier="John Doe")
-- "Delete admin@devflow.com" -> delete_user_tool(identifier="admin@devflow.com")
+EXAMPLES OF DELETION CONVERSATION:
+User: "Delete user Ravi"
+Assistant: "Are you sure you want to delete user **Ravi** (orkanth@gmail.com)? This action is permanent and cannot be undone."
+User: "Yes, delete"
+Assistant: (calls delete_user_tool(identifier="Ravi")) -> "User **Ravi** has been deleted successfully."
 
-CRITICAL TOOL RESPONSE RULES:
-- Accepts either user name or email as the `identifier`.
-- Call `delete_user_tool(identifier=...)` immediately without asking for confirmation.
---------------------------------------------------
-"""
+User: "Delete user Samba"
+Assistant: "Are you sure you want to delete user **Samba** (samba@devflow.com)? This action is permanent and cannot be undone."
+User: "No, cancel that"
+Assistant: "Deletion canceled. User **Samba** was not removed."
+""" 
 
 tools = [lookup_user_tool, create_user_tool, update_user_tool, delete_user_tool]
 
