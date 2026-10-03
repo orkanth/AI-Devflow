@@ -1,32 +1,19 @@
-import os
+from typing import Optional, Dict, Any 
+from app.clients.base_client import NEST_BASE_URL, BaseNestClient
 import httpx
-from typing import Optional, Dict, Any
+import urllib.parse
 
-NEST_BASE_URL = os.getenv("NESTJS_API_URL", "http://localhost:3333/api").rstrip("/")
-INTERNAL_KEY = os.getenv("INTERNAL_SERVICE_KEY", "dev-secret-key")
+class UsersClient(BaseNestClient):
+    
+    def __init__(self):
+        super().__init__("users")
+ 
 
-
-class NestJSClient:
-    def __init__(self, base_url: Optional[str] = None):
-        self.base_url = (base_url or NEST_BASE_URL).rstrip("/")
-        self.headers = {
-            "x-internal-token": INTERNAL_KEY,
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        }
-
-    async def _safe_parse_json(self, res: httpx.Response) -> Dict[str, Any]:
-        try:
-            return res.json()
-        except Exception:
-            return {"message": res.text or f"HTTP {res.status_code}"}
-
-  
     async def find_user(self, identifier: str) -> Optional[Dict[str, Any]]:
         clean_id = identifier.strip().strip('"').strip("'")
         
         # Try /users/search?query=... first
-        search_url = f"{self.base_url}/users/search"
+        search_url = f"{self.base_url}/search"
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 res = await client.get(search_url, params={"query": clean_id}, headers=self.headers)
@@ -51,7 +38,7 @@ class NestJSClient:
             return None
         
     async def create_user(self, name: str, email: str, role: str) -> Dict[str, Any]:
-        url = f"{self.base_url}/users"
+        url = f"{self.base_url}"
         payload = {"name": name.strip(), "email": email.strip(), "role": role.strip()}
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -74,7 +61,7 @@ class NestJSClient:
         email: Optional[str] = None,
         role: Optional[str] = None,
     ) -> Dict[str, Any]:
-        url = f"{self.base_url}/users/by-identifier/{identifier.strip()}"
+        url = f"{self.base_url}/by-identifier/{identifier.strip()}"
         payload = {}
         if name:
             payload["name"] = name.strip()
@@ -102,6 +89,40 @@ class NestJSClient:
         except httpx.RequestError as e:
             return {"success": False, "error": f"Could not connect to NestJS backend at {url}: {e}"}
    
+    async def delete_by_identifier(self, identifier: str) -> Dict[str, Any]:
+            """Direct delete endpoint called by /api/users/by-identifier/:identifier"""
+            clean_id = urllib.parse.quote(identifier.strip().strip('"\''), safe="")
+            url = f"{self.base_url}/by-identifier/{clean_id}"
+
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    res = await client.delete(url, headers=self.headers)
+                    data = await self._safe_parse_json(res)
+
+                    if res.status_code == 400:
+                        return {
+                            "success": False,
+                            "error": data.get("message") or "Cannot delete user.",
+                        }
+                    if res.status_code == 404:
+                        return {
+                            "success": False,
+                            "error": f"User with identifier '{identifier}' was not found for deletion.",
+                        }
+                    if res.status_code >= 400:
+                        raw_msg = data.get("message")
+                        detail = "; ".join(raw_msg) if isinstance(raw_msg, list) else (raw_msg or res.text)
+                        return {
+                            "success": False,
+                            "error": f"NestJS Error ({res.status_code}): {detail}",
+                        }
+
+                    return {"success": True, "data": data}
+            except httpx.RequestError as e:
+                return {
+                    "success": False,
+                    "error": f"Could not connect to NestJS backend at {url}: {e}",
+                }
     async def delete_user(self, identifier: str) -> Dict[str, Any]:
         clean_id = identifier.strip().strip('"').strip("'")
         
@@ -123,7 +144,7 @@ class NestJSClient:
             }
 
         # 2. Call the verified parametric UUID route: DELETE /users/:id
-        url = f"{self.base_url}/users/{user_id}"
+        url = f"{self.base_url}/{user_id}"
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 res = await client.delete(url, headers=self.headers)
@@ -155,8 +176,9 @@ class NestJSClient:
                 "success": False,
                 "error": f"Could not connect to NestJS backend at {url}: {e}"
             }
+    
     async def lookup_user(self, identifier: str) -> Optional[Dict[str, Any]]:
-        url = f"{self.base_url}/users/{identifier}"
+        url = f"{self.base_url}/{identifier}"
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 res = await client.get(url, headers=self.headers)
@@ -167,5 +189,20 @@ class NestJSClient:
             print(f"[ERROR] lookup_user connection error: {e}")
             return None
 
+        url = f"{self.base_url}/users"
+        payload = {"name": name.strip(), "email": email.strip(), "role": role.strip()}
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.post(url, json=payload, headers=self.headers)
+                data = await self._safe_parse_json(res)
+                if res.status_code == 409:
+                    detail = data.get("message") or "User or email already exists."
+                    return {"success": False, "error": detail}
+                if res.status_code >= 400:
+                    detail = data.get("message") or res.text
+                    return {"success": False, "error": f"NestJS Error ({res.status_code}): {detail}"}
+                return {"success": True, "data": data}
+        except httpx.RequestError as e:
+            return {"success": False, "error": f"Could not connect to NestJS backend at {url}: {e}"}
 
-nest_client = NestJSClient()
+users_client = UsersClient()

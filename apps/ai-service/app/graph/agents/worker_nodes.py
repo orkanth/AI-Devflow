@@ -2,12 +2,12 @@
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langgraph.prebuilt import create_react_agent
 from app.llm import get_llm
-from app.tools.langchain_tools import (
-    create_project_task,
-    list_project_tasks,
-    search_knowledge_base,
-    fetch_project_analytics
-)
+
+from app.tools.projects_tools import create_project_task
+from app.tools.tasks_tools import list_project_tasks
+from app.tools.ttd_tools import search_knowledge_base, fetch_project_analytics 
+
+ 
 
 llm = get_llm()
 

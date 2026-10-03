@@ -1,7 +1,6 @@
 from typing import Optional
 from langchain_core.tools import tool
-from app.tools.nestjs_tools import nest_client
-from app.vectorstore import get_vector_store
+from app.clients.user_client import users_client 
 
 # ==========================================
 # 1. USER MANAGEMENT TOOLS
@@ -17,7 +16,7 @@ async def lookup_user_tool(identifier: str) -> str:
     """
     clean_identifier = identifier.strip().strip('"').strip("'")
     
-    user = await nest_client.find_user(clean_identifier)
+    user = await users_client.find_user(clean_identifier)
     if not user:
         return f"A user with the identifier <b>{clean_identifier}</b> was not found."
 
@@ -38,7 +37,7 @@ async def lookup_user_tool(identifier: str) -> str:
 @tool
 async def create_user_tool(name: str, email: str, role: str) -> str:
     """Creates a user. Returns confirmation message or duplicate validation error."""
-    result = await nest_client.create_user(name=name, email=email, role=role)
+    result = await users_client.create_user(name=name, email=email, role=role)
     if not result.get("success"):
         return result.get("error", "Failed to create user.")
     return f"User {name} with role {role} and email {email} was created successfully."
@@ -64,7 +63,7 @@ async def update_user_tool(
         return "No fields provided to update. Please specify what you want to change (name, email, or role)."
 
     # Call NestJS update by identifier (resolves either email or name)
-    result = await nest_client.update_user_by_identifier(
+    result = await users_client.update_user_by_identifier(
         identifier=identifier,
         name=name,
         email=email,
@@ -84,73 +83,29 @@ async def update_user_tool(
     
        
 # Delete a user by their name or email address. This tool will call the NestJS API to delete the user and return a confirmation message or an error if the user does not exist.
-@tool
+@tool 
 async def delete_user_tool(
     identifier: str,
     email: Optional[str] = None
 ) -> str:
-    """Permanently deletes a single user from the system by their name or email address.
-    Do NOT call this tool multiple times for the same user request. If both name and email
-    are provided in the prompt, pass the email as 'email' and name as 'identifier'.
+    """Permanently deletes a single user from the system by their name or email address."""
+    clean_identifier = identifier.strip().strip('"\'') if identifier else ""
+    clean_email = email.strip().strip('"\'') if email else ""
 
-    Args:
-        identifier: The user's name or primary identifier (e.g. 'Ravi').
-        email: Optional email address of the user (e.g. 'oranath@gmail.com').
-    """
-    # Always prioritize email over name since email is unique in your entity
-    target = (email or identifier).strip().strip('"').strip("'")
+    primary_target = clean_email or clean_identifier
+    if not primary_target:
+        return "Error: No valid identifier or email provided."
 
-    result = await nest_client.delete_user(target)
+    result = await users_client.delete_by_identifier(primary_target)
 
-    # If email failed or was not found, fall back to identifier
-    if not result.get("success", False) and email and identifier:
-        fallback_target = identifier.strip().strip('"').strip("'")
-        if fallback_target != target:
-            result = await nest_client.delete_user(fallback_target)
+    # Fallback to name if email was not found
+    if not result.get("success") and clean_email and clean_identifier and clean_email != clean_identifier:
+        result = await users_client.delete_by_identifier(clean_identifier)
 
-    if not result.get("success", False):
-        return result.get("error", f"Failed to delete user '{target}'.")
+    if not result.get("success"):
+        return f"Error: {result.get('error', 'User could not be deleted.')}"
 
-    deleted_info = result.get("data", {})
-    name = deleted_info.get("name", target)
+    data = result.get("data", {})
+    name = data.get("name") or primary_target
+
     return f"User <b>{name}</b> has been deleted successfully."
-
-
-# ==========================================
-# 2. TASK & PROJECT TOOLS
-# ==========================================
-
-@tool
-async def create_project_task(title: str, description: str, project_id: str) -> str:
-    """Creates a new task in NestJS."""
-    result = await nest_client.create_task(title, description, project_id)
-    return f"Task created successfully with ID: {result.get('id')}"
-
-@tool
-async def list_project_tasks(project_id: Optional[str] = None) -> str:
-    """Fetches all tasks belonging to a given project or all tasks."""
-    tasks = await nest_client.get_tasks(project_id)
-    return str(tasks)
-
-# ==========================================
-# 3. RAG / KNOWLEDGE BASE TOOLS
-# ==========================================
-
-@tool
-async def search_knowledge_base(query: str, limit: int = 4) -> str:
-    """Performs semantic similarity search over documents stored in pgvector."""
-    store = get_vector_store()
-    docs = await store.asimilarity_search(query, k=limit)
-    if not docs:
-        return "No relevant context found."
-    return "\n\n".join([f"Document: {d.page_content}" for d in docs])
-
-# ==========================================
-# 4. ANALYTICS TOOLS
-# ==========================================
-
-@tool
-async def fetch_project_analytics(project_id: str) -> str:
-    """Retrieves sprint progress, velocity, and task completion metrics."""
-    metrics = await nest_client.get_project_metrics(project_id)
-    return str(metrics)

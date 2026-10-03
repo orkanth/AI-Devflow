@@ -2,7 +2,7 @@ from langchain_core.messages import SystemMessage
 from langgraph.prebuilt import create_react_agent
 
 from app.llm import get_llm
-from app.tools.langchain_tools import (
+from app.tools.user_tools import (
     lookup_user_tool,
     create_user_tool,
     update_user_tool,
