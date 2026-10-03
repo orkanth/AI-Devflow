@@ -78,20 +78,38 @@ async def update_user_tool(
         f"Role: <b>{updated.get('role')}</b>."
     )
     
-      
-@tool
-async def delete_user_tool(identifier: str) -> str:
-    """Permanently deletes a user by their name or email address."""
-    clean_id = identifier.strip().strip('"').strip("'")
-    
-    # Directly call delete_user on the client
-    result = await nest_client.delete_user(clean_id)
-    
-    if isinstance(result, dict) and not result.get("success", True):
-        return result.get("error", f"Failed to delete user '{clean_id}'.")
-        
-    return f"User '{clean_id}' has been deleted successfully."
+       
 
+@tool
+async def delete_user_tool(
+    identifier: str,
+    email: Optional[str] = None
+) -> str:
+    """Permanently deletes a single user from the system by their name or email address.
+    Do NOT call this tool multiple times for the same user request. If both name and email
+    are provided in the prompt, pass the email as 'email' and name as 'identifier'.
+
+    Args:
+        identifier: The user's name or primary identifier (e.g. 'Ravi').
+        email: Optional email address of the user (e.g. 'oranath@gmail.com').
+    """
+    # Always prioritize email over name since email is unique in your entity
+    target = (email or identifier).strip().strip('"').strip("'")
+
+    result = await nest_client.delete_user(target)
+
+    # If email failed or was not found, fall back to identifier
+    if not result.get("success", False) and email and identifier:
+        fallback_target = identifier.strip().strip('"').strip("'")
+        if fallback_target != target:
+            result = await nest_client.delete_user(fallback_target)
+
+    if not result.get("success", False):
+        return result.get("error", f"Failed to delete user '{target}'.")
+
+    deleted_info = result.get("data", {})
+    name = deleted_info.get("name", target)
+    return f"User <b>{name}</b> has been deleted successfully."
 # ==========================================
 # 2. TASK & PROJECT TOOLS
 # ==========================================

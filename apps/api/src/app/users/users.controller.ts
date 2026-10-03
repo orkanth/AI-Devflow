@@ -22,16 +22,19 @@ export class UsersController {
     return this.users.findAll();
   }
 
-  // --- STATIC / SPECIFIC ROUTES (MUST COME FIRST) ---
+  // =================================================================
+  // 1. STATIC & SPECIFIC ROUTES (MUST BE DECLARED FIRST)
+  // =================================================================
 
   @Get('search')
   async search(@Query('query') query: string) {
     if (!query) {
-      throw new BadRequestException('Query parameter is required');
+      throw new BadRequestException('Query parameter is required.');
     }
-    const user = await this.users.findByIdentifier(query);
+    const cleanQuery = decodeURIComponent(query).trim();
+    const user = await this.users.findByIdentifier(cleanQuery);
     if (!user) {
-      throw new BadRequestException(`User "${query}" not found.`);
+      throw new BadRequestException(`User "${cleanQuery}" not found.`);
     }
     return user;
   }
@@ -51,12 +54,20 @@ export class UsersController {
     return this.users.updateByIdentifier(cleanId, dto);
   }
 
+  @Delete('by-identifier/:identifier')
+  async removeByIdentifier(@Param('identifier') identifier: string) {
+    const cleanId = decodeURIComponent(identifier).trim();
+    return this.users.removeByIdentifier(cleanId);
+  }
+
   @Post()
   create(@Body() dto: CreateUserDto) {
     return this.users.create(dto);
   }
 
-  // --- PARAMETRIC UUID ROUTES (MUST COME LAST) ---
+  // =================================================================
+  // 2. PARAMETRIC UUID ROUTES (MUST BE DECLARED LAST)
+  // =================================================================
 
   @Get(':id')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
@@ -74,10 +85,5 @@ export class UsersController {
   @Delete(':id')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.users.remove(id);
-  }
-  @Delete('by-identifier/:identifier')
-  async removeByIdentifier(@Param('identifier') identifier: string) {
-    const cleanId = decodeURIComponent(identifier).trim();
-    return this.users.removeByIdentifier(cleanId);
   }
 }
