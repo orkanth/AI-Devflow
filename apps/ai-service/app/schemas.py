@@ -42,3 +42,17 @@ class ChatResultResponse(BaseModel):
     action_type: Literal["missing_info", "confirmation", "duplicate", "none"] = "none"
     missing_fields: Optional[List[str]] = None
     requires_confirmation: bool = False
+    
+    
+class AgentTrace(BaseModel):
+    agent_name: str
+    action: str
+    input_preview: Optional[str] = None
+    output_preview: Optional[str] = None
+    
+class ToolCall(BaseModel):
+    tool_name: Optional[str] = None
+    arguments: Dict[str, Any] = Field(default_factory=dict)
+    direct_response: Optional[str] = None
+
+ 

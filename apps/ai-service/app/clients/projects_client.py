@@ -1,29 +1,15 @@
-from typing import Any, Optional
+# apps/ai-service/app/clients/projects_client.py
+from typing import Dict, Any, Optional
 from app.clients.base_client import BaseNestClient
-
 
 class ProjectsClient(BaseNestClient):
     def __init__(self):
-        super().__init__("projects")
+        super().__init__(resource_prefix="projects")
 
-    async def list_projects(self) -> dict[str, Any]:
-        """Fetch all projects."""
-        return await self.request("GET")
-
-    async def get_project(self, project_id: str) -> dict[str, Any]:
-        """Fetch a single project by ID."""
-        return await self.request("GET", path=project_id)
-
-    async def create_project(self, name: str, description: Optional[str] = None) -> dict[str, Any]:
-        """Create a new project."""
-        payload = {"name": name.strip()}
-        if description:
-            payload["description"] = description.strip()
+    async def create_project(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         return await self.request("POST", json=payload)
 
-    async def get_project_analytics(self, project_id: str) -> dict[str, Any]:
-        """Retrieve analytics and metrics for a specific project."""
-        return await self.request("GET", path=f"{project_id}/analytics")
-
+    async def get_project(self, identifier: str) -> Dict[str, Any]:
+        return await self.request("GET", path=identifier)
 
 projects_client = ProjectsClient()

@@ -9,16 +9,17 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from app.llm import get_llm
 from app.graph.agents.user_agent import user_agent_node
+from app.graph.agents.project_agent import project_agent_node
 from app.graph.agents.worker_nodes import task_node, rag_node, analytics_node
 
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], operator.add]
     next_node: str
 
-MEMBERS = ["UserAgent", "TaskAgent", "RAGAgent", "AnalyticsAgent"]
+MEMBERS = ["UserAgent",  "TaskAgent", "ProjectAgent", "RAGAgent", "AnalyticsAgent"]
 
 class RouteResponse(BaseModel):
-    next_node: Literal["UserAgent", "TaskAgent", "RAGAgent", "AnalyticsAgent", "FINISH"]
+    next_node: Literal["UserAgent", "TaskAgent",  "ProjectAgent", "RAGAgent", "AnalyticsAgent", "FINISH"]
 
 def build_graph():
     llm = get_llm(temperature=0)
@@ -28,10 +29,12 @@ def build_graph():
         "ROUTING RULES:\n"
         "1. ANY query regarding users, creating users, updating users, deleting users, roles, or user emails "
         "MUST be routed to 'UserAgent'. NEVER finish directly on user operations without routing to UserAgent first.\n"
-        "2. Queries regarding tasks or projects go to 'TaskAgent'.\n"
-        "3. Queries searching documentation/knowledge base go to 'RAGAgent'.\n"
-        "4. Queries about project analytics or sprint velocity go to 'AnalyticsAgent'.\n"
-        "5. ONLY return 'FINISH' if one of the workers has ALREADY responded to the user in the latest messages.\n\n"
+        "2. ANY query regarding project, creating project, updating project, deleting project go to 'ProjectAgent'.\n"
+        "MUST be routed to 'ProjectAgent'. NEVER finish directly on project operations without routing to ProjectAgent first.\n"
+        "3. Queries regarding tasks or projects go to 'TaskAgent'.\n"
+        "4. Queries searching documentation/knowledge base go to 'RAGAgent'.\n"
+        "5. Queries about project analytics or sprint velocity go to 'AnalyticsAgent'.\n"
+        "6 . ONLY return 'FINISH' if one of the workers has ALREADY responded to the user in the latest messages.\n\n"
         "Given the conversation above, who should act next?"
     )
 
@@ -57,6 +60,7 @@ def build_graph():
     workflow.add_node("supervisor", supervisor_node)
     workflow.add_node("UserAgent", user_agent_node)
     workflow.add_node("TaskAgent", task_node)
+    workflow.add_node("ProjectAgent", project_agent_node)
     workflow.add_node("RAGAgent", rag_node)
     workflow.add_node("AnalyticsAgent", analytics_node)
 
@@ -66,6 +70,7 @@ def build_graph():
         {
             "UserAgent": "UserAgent",
             "TaskAgent": "TaskAgent",
+            "ProjectAgent": "ProjectAgent",
             "RAGAgent": "RAGAgent",
             "AnalyticsAgent": "AnalyticsAgent",
             "FINISH": END,
