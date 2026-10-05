@@ -25,17 +25,21 @@ def build_graph():
     llm = get_llm(temperature=0)
     
     system_prompt = (
-        "You are the DevFlow AI supervisor managing these specialized workers: {members}.\n\n"
-        "ROUTING RULES:\n"
-        "1. ANY query regarding users, creating users, updating users, deleting users, roles, or user emails "
-        "MUST be routed to 'UserAgent'. NEVER finish directly on user operations without routing to UserAgent first.\n"
-        "2. ANY query regarding project, creating project, updating project, deleting project go to 'ProjectAgent'.\n"
-        "MUST be routed to 'ProjectAgent'. NEVER finish directly on project operations without routing to ProjectAgent first.\n"
-        "3. Queries regarding tasks or projects go to 'TaskAgent'.\n"
-        "4. Queries searching documentation/knowledge base go to 'RAGAgent'.\n"
-        "5. Queries about project analytics or sprint velocity go to 'AnalyticsAgent'.\n"
-        "6 . ONLY return 'FINISH' if one of the workers has ALREADY responded to the user in the latest messages.\n\n"
-        "Given the conversation above, who should act next?"
+    "You are the DevFlow AI supervisor managing these specialized workers: {members}.\n\n"
+    "ROUTING PRECEDENCE & RULES:\n"
+    "1. PROJECT OPERATIONS (HIGHEST PRIORITY FOR PROJECTS):\n"
+    "   - ANY request to create, update, rename, delete, view, or change a PROJECT must route to 'ProjectAgent'.\n"
+    "   - This INCLUDES assigning or changing the project owner (e.g., 'Update Project X assign owner to Y', 'Change project owner to Ravi'). "
+    "Even though an owner/user is mentioned, the target entity being modified is a PROJECT, so route to 'ProjectAgent'.\n\n"
+    "2. USER OPERATIONS:\n"
+    "   - Requests to create, view, update, or delete USER accounts directly (e.g., 'Create user Ravi', 'Update user email') route to 'UserAgent'.\n\n"
+    "3. TASK OPERATIONS:\n"
+    "   - Requests to manage tasks within projects route to 'TaskAgent'.\n\n"
+    "4. STRICT SUPERVISOR CONSTRAINTS:\n"
+    "   - You are ONLY a router. You are strictly FORBIDDEN from asking clarification questions or generating conversational answers.\n"
+    "   - If a request mentions updating a project, ALWAYS route to 'ProjectAgent' immediately. Let ProjectAgent determine if parameters are missing.\n"
+    "   - NEVER return 'FINISH' on a new user request.\n\n"
+    "Given the conversation above, who should act next?"
     )
 
     prompt = ChatPromptTemplate.from_messages([

@@ -8,6 +8,9 @@ class ProjectsClient(BaseNestClient):
 
     async def create_project(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         return await self.request("POST", json=payload)
+    
+    async def update_project(self, identifier: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return await self.request("PATCH", path=identifier, json=payload)
 
     async def get_project(self, identifier: str) -> Dict[str, Any]:
         return await self.request("GET", path=identifier)

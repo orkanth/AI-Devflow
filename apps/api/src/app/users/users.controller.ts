@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -38,13 +39,17 @@ export class UsersController {
     }
     return user;
   }
-
-  @Get('by-identifier/:identifier')
-  async findByIdentifier(@Param('identifier') identifier: string) {
-    const cleanId = decodeURIComponent(identifier).trim();
-    return this.users.findByIdentifier(cleanId);
+@Get('by-identifier/:identifier')
+async findByIdentifier(@Param('identifier') identifier: string) {
+  const cleanId = decodeURIComponent(identifier).trim();
+  const user = await this.users.findByIdentifier(cleanId);
+  
+  if (!user) {
+    throw new NotFoundException(`User "${cleanId}" not found`);
   }
-
+  
+  return user;
+}
   @Patch('by-identifier/:identifier')
   async updateByIdentifier(
     @Param('identifier') identifier: string,
