@@ -56,39 +56,25 @@ export class UsersService {
   }
 
   // Find user by either email OR name
-  async findByIdentifier(identifier: string): Promise<User | null> {
+// Find user by either email OR name
+async findByIdentifier(identifier: string): Promise<User | null> {
+  if (!identifier) return null;
   const clean = identifier.trim().replace(/^["']|["']$/g, '');
 
-  // 1. Try exact case-insensitive match first
+  // 1. Exact case-insensitive match
   let user = await this.userRepository.findOne({
     where: [
-      {
-        name: Raw(alias => `LOWER(TRIM(${alias})) = LOWER(:query)`, {
-          query: clean,
-        }),
-      },
-      {
-        email: Raw(alias => `LOWER(TRIM(${alias})) = LOWER(:query)`, {
-          query: clean,
-        }),
-      },
+      { name: ILike(clean) },
+      { email: ILike(clean) },
     ],
   });
 
-  // 2. Fall back to contains/substring match (e.g., 'Reva' matching 'revavi')
+  // 2. Substring fallback (e.g., 'Ravi' matches 'Ravi Kanth')
   if (!user) {
     user = await this.userRepository.findOne({
       where: [
-        {
-          name: Raw(alias => `LOWER(TRIM(${alias})) LIKE LOWER(:pattern)`, {
-            pattern: `%${clean}%`,
-          }),
-        },
-        {
-          email: Raw(alias => `LOWER(TRIM(${alias})) LIKE LOWER(:pattern)`, {
-            pattern: `%${clean}%`,
-          }),
-        },
+        { name: ILike(`%${clean}%`) },
+        { email: ILike(`%${clean}%`) },
       ],
     });
   }

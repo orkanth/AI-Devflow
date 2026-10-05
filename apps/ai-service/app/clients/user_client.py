@@ -11,9 +11,15 @@ class UsersClient(BaseNestClient):
 
     async def find_user(self, identifier: str) -> Optional[Dict[str, Any]]:
         clean_id = identifier.strip().strip('"').strip("'")
-        
-        # Try /users/search?query=... first
+        if not clean_id:
+            return None
+
+        # 1. Search route: /users/search?query=...
         search_url = f"{self.base_url}/search"
+        # 2. Fallback route: /users/by-identifier/... (without duplicated '/users')
+        encoded_id = urllib.parse.quote(clean_id, safe="")
+        ident_url = f"{self.base_url}/by-identifier/{encoded_id}"
+
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 res = await client.get(search_url, params={"query": clean_id}, headers=self.headers)
@@ -26,17 +32,18 @@ class UsersClient(BaseNestClient):
                             return data["data"][0] if data["data"] else None
                         return data
 
-                # Fallback to /users/by-identifier/:identifier if search didn't match
-                ident_url = f"{self.base_url}/users/by-identifier/{clean_id}"
+                # Fallback
                 res_ident = await client.get(ident_url, headers=self.headers)
                 if res_ident.status_code == 200:
-                    return await self._safe_parse_json(res_ident)
+                    data_ident = await self._safe_parse_json(res_ident)
+                    if isinstance(data_ident, dict) and "data" in data_ident:
+                        return data_ident["data"]
+                    return data_ident
 
                 return None
         except httpx.RequestError as e:
             print(f"[ERROR] find_user connection error: {e}")
             return None
-        
     async def create_user(self, name: str, email: str, role: str) -> Dict[str, Any]:
         url = f"{self.base_url}"
         payload = {"name": name.strip(), "email": email.strip(), "role": role.strip()}
@@ -189,20 +196,5 @@ class UsersClient(BaseNestClient):
             print(f"[ERROR] lookup_user connection error: {e}")
             return None
 
-        url = f"{self.base_url}/users"
-        payload = {"name": name.strip(), "email": email.strip(), "role": role.strip()}
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                res = await client.post(url, json=payload, headers=self.headers)
-                data = await self._safe_parse_json(res)
-                if res.status_code == 409:
-                    detail = data.get("message") or "User or email already exists."
-                    return {"success": False, "error": detail}
-                if res.status_code >= 400:
-                    detail = data.get("message") or res.text
-                    return {"success": False, "error": f"NestJS Error ({res.status_code}): {detail}"}
-                return {"success": True, "data": data}
-        except httpx.RequestError as e:
-            return {"success": False, "error": f"Could not connect to NestJS backend at {url}: {e}"}
-
+         
 users_client = UsersClient()

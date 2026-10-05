@@ -26,30 +26,29 @@ export class UsersController {
   // =================================================================
   // 1. STATIC & SPECIFIC ROUTES (MUST BE DECLARED FIRST)
   // =================================================================
-
-  @Get('search')
-  async search(@Query('query') query: string) {
-    if (!query) {
-      throw new BadRequestException('Query parameter is required.');
-    }
-    const cleanQuery = decodeURIComponent(query).trim();
-    const user = await this.users.findByIdentifier(cleanQuery);
-    if (!user) {
-      throw new BadRequestException(`User "${cleanQuery}" not found.`);
-    }
-    return user;
+@Get('search')
+async search(@Query('query') query: string) {
+  if (!query || !query.trim()) {
+    throw new BadRequestException('Query parameter is required.');
   }
+  const cleanQuery = query.trim();
+  const user = await this.users.findByIdentifier(cleanQuery);
+  if (!user) {
+    throw new NotFoundException(`User "${cleanQuery}" not found.`);
+  }
+  return user;
+}
+
 @Get('by-identifier/:identifier')
 async findByIdentifier(@Param('identifier') identifier: string) {
-  const cleanId = decodeURIComponent(identifier).trim();
+  const cleanId = identifier.trim();
   const user = await this.users.findByIdentifier(cleanId);
-  
   if (!user) {
     throw new NotFoundException(`User "${cleanId}" not found`);
   }
-  
   return user;
 }
+   
   @Patch('by-identifier/:identifier')
   async updateByIdentifier(
     @Param('identifier') identifier: string,

@@ -97,27 +97,47 @@ async def update_project_tool(
     # 4. Resolve owner (Name/Email -> UUID)
     if owner:
         clean_owner = owner.strip()
+        print(f"\n==========================================")
+        print(f"[DEBUG] Looking up owner: '{clean_owner}'")
+
         if UUID_REGEX.match(clean_owner):
             payload["ownerId"] = clean_owner
         else:
-            user_res = await users_client.lookup_user(clean_owner)
-            
-            # Temporary log to verify what Python actually receives:
-            print(f"DEBUG lookup_user response for '{clean_owner}': {user_res}")
+            try:
+                # FIX: Use find_user instead of lookup_user so it queries by name/search
+                user_res = await users_client.find_user(clean_owner)
+            except Exception as e:
+                print(f"[DEBUG EXCEPTION]: {str(e)}")
+                return f"Error contacting user service: {str(e)}"
 
+            print(f"[DEBUG RAW RESPONSE TYPE]: {type(user_res)}")
+            print(f"[DEBUG RAW RESPONSE VALUE]: {user_res}")
+            print(f"==========================================\n")
+
+            if not user_res:
+                return f"System Error: users_client returned None or empty response for '{clean_owner}'."
+
+            # Case A: If user_res returned an error dictionary
+            if isinstance(user_res, dict) and not user_res.get("success", True):
+                return f"Backend User Lookup Failed: {user_res.get('error')} (Status: {user_res.get('status_code')})"
+
+            # Case B: Extract ID whether it's wrapped in 'data' or top-level
             resolved_id = None
-            if isinstance(user_res, dict) and user_res.get("success"):
+            if isinstance(user_res, dict):
                 data = user_res.get("data")
-                if isinstance(data, dict) and data.get("id"):
+                if isinstance(data, dict):
                     resolved_id = data.get("id")
+                elif isinstance(data, list) and len(data) > 0:
+                    resolved_id = data[0].get("id")
                 elif user_res.get("id"):
                     resolved_id = user_res.get("id")
 
             if resolved_id:
                 payload["ownerId"] = resolved_id
             else:
-                return f"Error: User '{clean_owner}' was not found. Please verify the user exists."
-
+                return f"Could not find ID for user '{clean_owner}'. Raw response was: {user_res}"
+   
+   
     # 5. Send update request using the verified project ID
     result = await projects_client.update_project(target_id, payload)
     if not result.get("success"):
