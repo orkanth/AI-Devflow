@@ -46,6 +46,36 @@ async def create_project_tool(
     return f"Project **{clean_name}** created successfully!"
 
 @tool
+async def delete_project_tool(identifier: str) -> str:
+    """Deletes an existing project in DevFlow AI by its name or ID.
+
+    Args:
+        identifier: The project name or UUID to delete.
+    """
+    clean_identifier = identifier.strip().strip('"').strip("'")
+    if not clean_identifier:
+        return "Error: An identifier (project name or UUID) must be provided to delete a project."
+
+    # 1. Resolve project by name or UUID to obtain the actual database ID
+    target = await projects_client.lookup_project(clean_identifier)
+    if not target.get("success") or not target.get("data"):
+        return f"Error: Project '{clean_identifier}' was not found. Cannot delete non-existent project."
+
+    project_data = target["data"]
+    project_id = project_data.get("id")
+    project_name = project_data.get("name", clean_identifier)
+
+    if not project_id:
+        return f"Error: Found project record for '{project_name}', but could not extract a valid ID."
+
+    # 2. Call DELETE /projects/:id using the verified project_id
+    result = await projects_client.delete_project(project_id)
+    if not result.get("success"):
+        return f"Failed to delete project '{project_name}': {result.get('error', 'Unknown backend error')}"
+
+    return f"Project **{project_name}** (ID: `{project_id}`) has been successfully deleted."
+
+@tool
 async def update_project_tool(
     identifier: str,
     name: Optional[str] = None,
@@ -180,16 +210,7 @@ async def lookup_project_tool(identifier: str) -> str:
     owner_info = data.get("owner", {})
     owner_name = owner_info.get("name") if isinstance(owner_info, dict) else data.get("ownerId", "None")
 
-    return (
-        f"Project Found:\n"
-        f"- **Name**: {name}\n"
-        f"- **ID**: `{project_id}`\n"
-        f"- **Status**: `{status}`\n"
-        f"- **Priority**: `{priority}`\n"
-        f"- **Owner**: {owner_name}\n"
-        f"- **Description**: {description}"
-    )
-
+ 
     """Looks up an existing project by its name or ID.
 
     Args:
@@ -211,3 +232,5 @@ async def lookup_project_tool(identifier: str) -> str:
         f"- **Priority**: `{data.get('priority', 'N/A')}`\n"
         f"- **Owner ID**: `{data.get('ownerId', 'N/A')}`"
     )
+    
+   

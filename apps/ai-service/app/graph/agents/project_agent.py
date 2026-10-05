@@ -1,7 +1,7 @@
 from langchain_core.messages import SystemMessage
 from langgraph.prebuilt import create_react_agent 
 from app.llm import get_llm
-from app.tools.projects_tools import create_project_tool, lookup_project_tool, update_project_tool
+from app.tools.projects_tools import create_project_tool, delete_project_tool, lookup_project_tool, update_project_tool
 from app.tools.user_tools import lookup_user_tool
 
 PROJECT_AGENT_SYSTEM_PROMPT = """You are the DevFlow AI Project Management Agent.
@@ -9,6 +9,8 @@ Available tools:
 - lookup_project_tool(identifier: str)
 - create_project_tool(name: str, description: str, owner_id: str = None, priority: str = "low", status: str = "active")
 - lookup_user_tool(identifier: str)
+- `delete_project_tool(identifier)`:
+  - Permanently removes a project by its name or UUID.
 ==================================================
 MANDATORY TWO-PHASE CREATION PROTOCOL
 ==================================================
@@ -148,10 +150,18 @@ EXAMPLES OF VALID UPDATES:
 
 - "Change project Demo owner to orkanth@gmail.com and priority to critical"
   -> update_project_tool(identifier="Demo", owner="orkanth@gmail.com", priority="critical")
-  
+
+
+==================================================
+DELETE PROTOCOL
+==================================================
+### 1. Project Deletion Rules
+- **Explicit Intent:** Only invoke `delete_project_tool` when the user explicitly requests deletion (e.g., "Delete project X", "Remove project 'Alpha'").
+- **Clear Identification:** Pass the exact project name or UUID provided by the user. Do not guess or assume a project name.
+- **Reporting Outcomes:** When a project is deleted, confirm the deletion clearly with its name and ID as returned by the tool. If the project is not found, inform the user directly and ask them to verify the name.
 """
 
-project_tools = [lookup_project_tool, create_project_tool, lookup_user_tool, update_project_tool]
+project_tools = [lookup_project_tool, create_project_tool, lookup_user_tool, update_project_tool, delete_project_tool]
 
 project_agent_runnable = create_react_agent(
     model=get_llm(temperature=0),

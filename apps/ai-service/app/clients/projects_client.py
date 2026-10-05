@@ -21,4 +21,11 @@ class ProjectsClient(BaseNestClient):
             method="GET",
             path=f"by-identifier/{identifier.strip()}",
         )
+        
+    async def delete_project(self, project_id: str) -> Dict[str, Any]:
+        """Calls DELETE /projects/:id"""
+        return await self.request(
+            method="DELETE",
+            path=project_id.strip(),
+        )
 projects_client = ProjectsClient()
