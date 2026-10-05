@@ -30,4 +30,9 @@ export class ProjectsController {
   remove(@Param('id') id: string) {
     return this.projects.remove(id);
   }
+
+  @Get('by-identifier/:identifier')
+  findByIdentifier(@Param('identifier') identifier: string) {
+    return this.projects.findByIdentifier(identifier);
+  }
 }

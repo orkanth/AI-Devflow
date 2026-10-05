@@ -11,5 +11,11 @@ class ProjectsClient(BaseNestClient):
 
     async def get_project(self, identifier: str) -> Dict[str, Any]:
         return await self.request("GET", path=identifier)
-
+    
+    async def lookup_project(self, identifier: str) -> dict:
+        """Finds a project by ID or Name."""
+        return await self.request(
+            method="GET",
+            path=f"by-identifier/{identifier.strip()}",
+        )
 projects_client = ProjectsClient()

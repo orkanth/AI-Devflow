@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm'; 
+import { ILike, Repository } from 'typeorm'; 
 import { UsersService } from '../users/users.service';
 import { CreateProjectDto, UpdateProjectDto } from './projects.dto';
 import { Project } from './projects.entity';
+import { isUUID } from 'class-validator';
 
 @Injectable()
 export class ProjectsService {
@@ -25,6 +26,25 @@ export class ProjectsService {
     return project;
   }
 
+ async findByIdentifier(identifier: string): Promise<Project | null> {
+    const cleanId = identifier.trim();
+
+    // Guard: Only query 'id' if the identifier is actually a valid UUID!
+    const whereConditions: any[] = [{ name: ILike(cleanId) }];
+    if (isUUID(cleanId)) {
+      whereConditions.push({ id: cleanId });
+    }
+
+    const project = await this.projectRepo.findOne({
+      where: whereConditions,
+    });
+
+    if (!project) {
+      throw new NotFoundException(`Project "${identifier}" not found`);
+    }
+
+    return project;
+  }
 async create(dto: CreateProjectDto): Promise<Project> {
   const ownerId = dto.ownerId && dto.ownerId.trim() !== '' ? dto.ownerId : null;
 
@@ -36,7 +56,7 @@ async create(dto: CreateProjectDto): Promise<Project> {
     name: dto.name,
     description: dto.description,
     ownerId: ownerId,
-    status: dto.status ?? 'active',
+    status: dto.status ?? 'planning',
     priority: dto.priority ?? 'medium',
   });
 

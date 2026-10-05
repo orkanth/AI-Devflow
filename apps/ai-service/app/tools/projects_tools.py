@@ -6,66 +6,81 @@ from langchain_core.tools import tool
 from app.clients.projects_client import projects_client
 from app.clients.user_client import users_client  
 UUID_REGEX = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
-
+ 
 @tool
 async def create_project_tool(
     name: str,
     description: str,
     owner_id: Optional[str] = None,
-    priority: Literal["low", "medium", "high", "critical"] = "low",
-    status: Literal["active", "planning", "on_hold", "completed", "archived"] = "active",
+    priority: str = "low",
+    status: str = "active",
 ) -> str:
-    """Creates a new project in DevFlow AI.
+    """Creates a new project in DevFlow AI."""
+    clean_name = name.strip()
 
-    Args:
-        name: Name of the project (e.g. 'TestPrject1').
-        description: A brief summary or scope of the project.
-        owner_id: UUID of the owner. Defaults to system owner if omitted.
-        priority: Priority of the project ('low', 'medium', 'high', 'critical'). Defaults to 'low'.
-        status: Lifecycle status ('active', 'planning', etc.). Defaults to 'active'.
-        
-        
-        EXTRACTION INSTRUCTIONS FOR CREATING PROJECTS:
-            Users may provide input with typos, varying order, or key-value pairs (e.g., "Careate project TestPro and Desciption: Test desc").
+    # Programmatic Guardrail: Lookup before creating
+    existing = await projects_client.lookup_project(clean_name)
+    if existing.get("success") and existing.get("data"):
+        project_data = existing["data"]
+        return (
+            f"Cannot create project: A project named '{clean_name}' "
+            f"already exists with ID `{project_data.get('id')}`."
+        )
 
-            - Name: Look for words following "project", "create project", or labeled as "name:".
-            - Description: Look for text following "description:", "desc:", "about", or "scope".
-            - If `name` and `description` are both present, invoke `create_project_tool(name=..., description=...)` immediately.
-            - Leave `owner_id`, `priority`, and `status` to their defaults unless explicitly specified.
-            - Only prompt for missing info if `name` or `description` cannot be found.
-    """
-    resolved_owner_id = None
-
-    if owner_id:
-        clean_owner = owner_id.strip()
-        # If it's already a valid UUID, use it directly
-        if UUID_REGEX.match(clean_owner):
-            resolved_owner_id = clean_owner
-        else:
-            # Look up the user by name or email automatically
-            user_res = await users_client.lookup_user(clean_owner)
-            if user_res.get("success") and user_res.get("data"):
-                resolved_owner_id = user_res["data"].get("id")
-
+    # Proceed with creation if lookup did not find it
     payload = {
-        "name": name.strip(),
+        "name": clean_name,
         "description": description.strip(),
         "status": status.lower(),
         "priority": priority.lower(),
     }
     if owner_id:
         payload["ownerId"] = owner_id.strip()
-        
+
     result = await projects_client.create_project(payload)
     if not result.get("success"):
-        return f"CRITICAL_BACKEND_ERROR: Status {result.get('status_code')}: {result.get('error')}"
+        return f"Failed to create project: {result.get('error')}"
 
-    data = result.get("data", {})
-    return f"Project created successfully: {data}"
+    return f"Project **{clean_name}** created successfully!"
 
 @tool
 async def lookup_project_tool(identifier: str) -> str:
-    
+    """Looks up an existing project by its name.
+
+    Args:
+        identifier: The project name to search for.
+    """
+    clean_id = identifier.strip() if identifier else ""
+    if not clean_id:
+        return "Error: An identifier (project name) must be provided."
+
+    result = await projects_client.lookup_project(clean_id)
+
+    if not result.get("success"):
+        status_code = result.get("status_code")
+        if status_code == 404:
+            return f"Project '{clean_id}' was not found."
+        return f"Failed to look up project: {result.get('error', 'Unknown backend error')}"
+
+    data = result.get("data", {})
+    project_id = data.get("id", "N/A")
+    name = data.get("name", "N/A")
+    description = data.get("description", "No description provided")
+    status = data.get("status", "N/A")
+    priority = data.get("priority", "N/A")
+
+    owner_info = data.get("owner", {})
+    owner_name = owner_info.get("name") if isinstance(owner_info, dict) else data.get("ownerId", "None")
+
+    return (
+        f"Project Found:\n"
+        f"- **Name**: {name}\n"
+        f"- **ID**: `{project_id}`\n"
+        f"- **Status**: `{status}`\n"
+        f"- **Priority**: `{priority}`\n"
+        f"- **Owner**: {owner_name}\n"
+        f"- **Description**: {description}"
+    )
 
     """Looks up an existing project by its name or ID.
 
