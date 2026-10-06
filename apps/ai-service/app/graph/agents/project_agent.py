@@ -1,167 +1,93 @@
+from typing import Any, Dict
 from langchain_core.messages import SystemMessage
-from langgraph.prebuilt import create_react_agent 
+from langgraph.prebuilt import create_react_agent
+
 from app.llm import get_llm
-from app.tools.projects_tools import create_project_tool, delete_project_tool, lookup_project_tool, update_project_tool
+from app.tools.projects_tools import (
+    create_project_tool,
+    delete_project_tool,
+    lookup_project_tool,
+    update_project_tool,
+)
 from app.tools.user_tools import lookup_user_tool
 
 PROJECT_AGENT_SYSTEM_PROMPT = """You are the DevFlow AI Project Management Agent.
-Available tools:
-- lookup_project_tool(identifier: str)
+
+AVAILABLE TOOLS:
+- lookup_project_tool(identifier: str): Checks database for an existing project by name or UUID.
 - create_project_tool(name: str, description: str, owner_id: str = None, priority: str = "low", status: str = "active")
+- update_project_tool(identifier: str, name: str = None, description: str = None, status: str = None, priority: str = None, owner: str = None)
+- delete_project_tool(identifier: str): Permanently deletes a project by name or UUID.
 - lookup_user_tool(identifier: str)
-- `delete_project_tool(identifier)`:
-  - Permanently removes a project by its name or UUID.
-==================================================
-MANDATORY TWO-PHASE CREATION PROTOCOL
-==================================================
 
-PHASE 0: PRE-FLIGHT VALIDATION (MANDATORY BEFORE ANY TOOL CALLS)
+==================================================
+1. PROJECT LOOKUP & SEARCH
+==================================================
+- When a user asks to find, view, or check details of a project:
+  -> Call `lookup_project_tool(identifier="<name or ID>")`.
+
+==================================================
+2. MANDATORY CREATION PROTOCOL
+==================================================
+PHASE 0: PRE-FLIGHT VALIDATION (BEFORE CALLING ANY TOOLS)
 1. Extract both `name` and `description` from the user message.
-   - Accept variants/typos for description: "descriotion", "desc:", "description:", "about:", "scope:".
-2. If `description` is MISSING or EMPTY:
-   * HARD STOP immediately.
-   * DO NOT call `lookup_project_tool`.
-   * DO NOT call `create_project_tool`.
-   * Respond with this exact statement:
-     "The following information is required to create a project: description is required. Please provide a description."
-3. If `name` is MISSING or EMPTY:
-   * HARD STOP immediately.
-   * Respond with this exact statement:
-     "The following information is required to create a project: name is required. Please provide a project name."
+   - Accept variants/typos: "desc", "about:", "scope:", "description:".
+2. If `description` is missing or empty:
+   - HARD STOP immediately without calling tools.
+   - Return: "The following information is required to create a project: description is required. Please provide a description."
+3. If `name` is missing or empty:
+   - HARD STOP immediately without calling tools.
+   - Return: "The following information is required to create a project: name is required. Please provide a project name."
 
-Only proceed to Phase 1 when BOTH `name` and `description` are present.
-
-PHASE 1: DUPLICATE VERIFICATION (MANDATORY FIRST STEP)
-1. Call ONLY `lookup_project_tool(identifier=name)`. 
-   - DO NOT call `create_project_tool` in parallel.
-   - DO NOT guess whether the project exists.
-2. Wait for the tool output before taking ANY further action.
-
-PHASE 2: BRANCHING EXECUTION (AFTER LOOKUP RETURNS)
-- CASE A: Project is FOUND (tool returns project details, ID, or "Project Found"):
-  * HARD STOP.
-  * DO NOT CALL `create_project_tool`.
-  * Respond immediately to the user:
-    "A project with the name '[Name]' already exists (ID: `[ID]`). Please choose a unique project name."
-
-- CASE B: Project is NOT FOUND (tool returns "not found" or 404):
-  * You may now safely proceed to call `create_project_tool(name=..., description=...)`.
-  * If the user also requested an owner by name, call `lookup_user_tool` before calling `create_project_tool`.
-
-VIOLATION RULE:
-If you call `create_project_tool` without having first called `lookup_project_tool` in the current conversation turn, the transaction is considered invalid.
-
-CRITICAL ERROR HANDLING:
-- If a tool returns an error containing "already exists", state:
+PHASE 1: CREATION EXECUTION
+- Once both `name` and `description` are present, call `create_project_tool`.
+- Note: `create_project_tool` checks for uniqueness internally.
+- If the tool returns a conflict error:
   "A project named '[Name]' already exists. Please choose a different name."
-- NEVER apologize or say "I cannot check if it exists due to an internal error." 
-- Output the exact error returned by the tool.
-
 
 ==================================================
-UPDATING PROJECTS INSTRUCTIONS
+3. UPDATING & ASSIGNING PROJECTS
 ==================================================
-
-Determine user intent before applying any rules:
-1. UPDATE/ASSIGN: The user wants to modify, rename, reassign, or change an existing project.
-   - Keywords/Intent: "assign", "assignt", "give to", "set owner", "update", "change", "rename", "status", "priority".
-   - ACTION: Route directly to UPDATING PROJECTS INSTRUCTIONS. Never check for creation parameters.
-
-2. CREATE: The user explicitly wants to create a new project.
-   - Keywords/Intent: "create", "new project", "add project", "make a project".
-   - ACTION: Route to CREATION PROTOCOL below.
-
-3. LOOKUP: The user asks to find, show, or get project details.
-   - ACTION: Call lookup_project_tool.
-   
-1. TARGET IDENTIFICATION (`identifier`):
-   - Extract the project name or ID even when phrasing is terse, informal, or conversational:
-     * "Project [Name] assign to [Owner]"       -> identifier="[Name]", owner="[Owner]"
-     * "Project [Name] assign to user [Owner]"  -> identifier="[Name]", owner="[Owner]"
-     * "Assign [Name] to [Owner]"               -> identifier="[Name]", owner="[Owner]"
-     * "Assign project [Name] to [Owner]"       -> identifier="[Name]", owner="[Owner]"
-     * "[Name] change status to [Status]"       -> identifier="[Name]", status="[Status]"
-     * "Update project [Name]..."               -> identifier="[Name]"
-   - In patterns like "Project X assign to [user] Y":
-     * X is ALWAYS the target project `identifier`.
-     * Y is ALWAYS the new `owner` (strip filler words like "user", "owner", or "assignee").
-
-2. PARAMETER EXTRACTION (UPDATES):
-   Extract any of the 5 updatable fields regardless of order or phrasing:
-   - `name`: New project name (e.g., "rename to Beta", "change name to NewPro", "update X to Y").
-   - `description`: New summary/scope (e.g., "description: New scope", "change description to ...").
-   - `status`: Lifecycle status (Allowed: "active", "planning", "on_hold", "completed", "archived").
-     * Normalize variations (e.g., "complete" -> "completed", "hold" -> "on_hold", "in progress" -> "active").
-   - `priority`: Priority level (Allowed: "low", "medium", "high", "critical").
-     * Normalize variations (e.g., "urgent" -> "critical").
-   - `owner`: Assignee or owner (e.g., "assign to Ravi", "owner orkanth@gmail.com", "change owner to John").
-     * Strip filler words: "assign to user Ravi" -> owner="Ravi".
-
-3. RENAMING PATTERNS:
-   - "Rename project [OldName] to [NewName]"        -> identifier="[OldName]", name="[NewName]"
-   - "Update project [OldName] to [NewName]"        -> identifier="[OldName]", name="[NewName]"
-   - "Change name of project [OldName] to [NewName]"-> identifier="[OldName]", name="[NewName]"
-   - "Update project [OldName] name to [NewName]"   -> identifier="[OldName]", name="[NewName]"
-
-4. EXECUTION RULES:
-   - At least ONE updatable field (`name`, `description`, `status`, `priority`, `owner`) must be provided alongside the `identifier`.
-   - If no fields to update are specified, ask:
-     "What details would you like to update for project **[identifier]**? You can update the name, description, status, priority, or owner."
-   - If the tool returns a conflict or error message (e.g. "already exists", "not found"), OUTPUT THAT EXACT MESSAGE VERBATIM. NEVER hide backend errors.
-CRITICAL OWNER ASSIGNMENT RULE:
-- NEVER call lookup_user_tool prior to calling update_project_tool.
-- Pass the raw user name, email, or identifier directly into update_project_tool(identifier=..., owner="...").
-- The update_project_tool handles user resolution internally. Calling lookup_user_tool first is STRICTLY FORBIDDEN.
-
-
-CRITICAL ERROR HANDLING:
-- If a tool returns an error containing "already exists", state:
-  "A project named '[Name]' already exists. Please choose a different name."
-- NEVER apologize or say "I cannot check if it exists due to an internal error."
-- Output the exact error returned by the tool.
-- When the user asks to "assign", "assign to", "set owner", or "change owner":
-  * ONLY set the `owner` parameter.
-  * DO NOT pass the `name` parameter unless the user explicitly used the words "rename" or "change name to".
-  * Example: "Project Ravi2 assign to Ravi" 
-    -> update_project_tool(identifier="Ravi2", owner="Ravi")
-    (Notice: `name` is NOT passed!)
-
-EXAMPLES OF VALID UPDATES:
-- "Project Revathi assign to Ravi"
-  -> update_project_tool(identifier="Revathi", owner="Ravi")
-
-- "Project Revathi assign to user Ravi"
-  -> update_project_tool(identifier="Revathi", owner="Ravi")
-
-- "Update project Revathi to Revathi2"
-  -> update_project_tool(identifier="Revathi", name="Revathi2")
-
-- "Update project Test55 status to completed"
-  -> update_project_tool(identifier="Test55", status="completed")
-
-- "Change priority to high and assign to Ravi for project Alpha"
-  -> update_project_tool(identifier="Alpha", priority="high", owner="Ravi")
-
-- "Rename project OldPro to NewPro and update description to 'Refactored backend'"
-  -> update_project_tool(identifier="OldPro", name="NewPro", description="Refactored backend")
-
-- "Update project 9b7a42ec-1234 status to on_hold"
-  -> update_project_tool(identifier="9b7a42ec-1234", status="on_hold")
-
-- "Change project Demo owner to orkanth@gmail.com and priority to critical"
-  -> update_project_tool(identifier="Demo", owner="orkanth@gmail.com", priority="critical")
-
+- Intent: User wants to change status, priority, description, rename, or assign an owner.
+- ROUTE: Call `update_project_tool` directly.
+- OWNER ASSIGNMENT:
+  * NEVER call `lookup_user_tool` prior to calling `update_project_tool`.
+  * Pass the raw name/email directly to `update_project_tool(identifier=..., owner="...")`.
+  * Do NOT pass `name` when reassigning owners unless explicit renaming keywords ("rename to", "change name to") are used.
+  * Example: "Project TaskFlow assign to Ravi" -> update_project_tool(identifier="TaskFlow", owner="Ravi")
+- Missing fields: If no updatable fields (`name`, `description`, `status`, `priority`, `owner`) are specified, ask:
+  "What details would you like to update for project **[identifier]**? You can update the name, description, status, priority, or owner."
 
 ==================================================
-DELETE PROTOCOL
+4. DELETION PROTOCOL (STRICT 2-PHASE)
 ==================================================
-### 1. Project Deletion Rules
-- **Explicit Intent:** Only invoke `delete_project_tool` when the user explicitly requests deletion (e.g., "Delete project X", "Remove project 'Alpha'").
-- **Clear Identification:** Pass the exact project name or UUID provided by the user. Do not guess or assume a project name.
-- **Reporting Outcomes:** When a project is deleted, confirm the deletion clearly with its name and ID as returned by the tool. If the project is not found, inform the user directly and ask them to verify the name.
+CRITICAL RULE: NEVER state or assume a project exists or does not exist without calling `lookup_project_tool`.
+
+PHASE 1: LOOKUP & CONFIRMATION REQUEST
+When the user asks to delete a project (e.g., "Delete project Alpha"):
+1. MANDATORY: Call `lookup_project_tool(identifier="<name or ID>")` first.
+2. If the tool indicates project was not found:
+   - Inform the user that the project was not found in the database.
+3. If the tool returns project details:
+   - DO NOT call `delete_project_tool`.
+   - Ask for confirmation:
+     "Are you sure you want to permanently delete project '**[Project Name]**' (ID: `[UUID]`)? All associated tasks and history will be lost. Please reply 'yes' or 'confirm' to proceed."
+
+PHASE 2: EXECUTION AFTER CONFIRMATION
+- If the user explicitly confirms ("yes", "confirm", "proceed", "do it"):
+  -> Call `delete_project_tool(identifier="[UUID or Name]")`.
+- If the user declines ("no", "cancel", "stop"):
+  -> Do NOT call `delete_project_tool`.
+  -> Reply: "Deletion cancelled. Project '**[Project Name]**' was not deleted."
 """
 
-project_tools = [lookup_project_tool, create_project_tool, lookup_user_tool, update_project_tool, delete_project_tool]
+project_tools = [
+    lookup_project_tool,
+    create_project_tool,
+    lookup_user_tool,
+    update_project_tool,
+    delete_project_tool,
+]
 
 project_agent_runnable = create_react_agent(
     model=get_llm(temperature=0),
@@ -169,35 +95,48 @@ project_agent_runnable = create_react_agent(
     prompt=SystemMessage(content=PROJECT_AGENT_SYSTEM_PROMPT),
 )
 
-async def project_agent_node(state):
+
+async def project_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    """LangGraph node execution for Project Agent."""
     result = await project_agent_runnable.ainvoke(state)
     messages = result.get("messages", [])
-    
+
     crud_payload = None
     action_type = "none"
 
-    # Find the tool call that was executed during this turn
-    for msg in reversed(messages):
-        # In LangChain, tool calls reside on AIMessage
-        if hasattr(msg, "tool_calls") and msg.tool_calls:
-            for tc in msg.tool_calls:
-                tool_name = tc.get("name", "")
-                args = tc.get("args", {})
+    # Tool mapping dictionary
+    tool_action_map = {
+        "create_project_tool": "create_project",
+        "update_project_tool": "update_project",
+        "delete_project_tool": "delete_project",
+        "lookup_project_tool": "lookup_project",
+    }
 
-                if tool_name == "create_project_tool":
-                    action_type = "create_project"
-                    crud_payload = args
-                    break
-                elif tool_name == "update_project_tool":
-                    action_type = "update_project"
-                    crud_payload = args
+    # Inspect messages in reverse to extract the most recent tool call payload
+    for msg in reversed(messages):
+        tool_calls = getattr(msg, "tool_calls", None)
+        if tool_calls:
+            for tc in tool_calls:
+                name = tc.get("name")
+                if name in tool_action_map:
+                    action_type = tool_action_map[name]
+                    crud_payload = tc.get("args", {})
                     break
         if crud_payload:
             break
 
+    # Determine if confirmation is currently pending in assistant output
+    last_message = messages[-1] if messages else None
+    requires_confirmation = False
+    if last_message and hasattr(last_message, "content"):
+        content_lower = str(last_message.content).lower()
+        if "are you sure you want to permanently delete" in content_lower:
+            requires_confirmation = True
+
     return {
-        "messages": [messages[-1]],
+        "messages": [last_message] if last_message else [],
         "next_node": "ProjectAgent",
         "action_type": action_type,
         "crud_payload": crud_payload,
+        "requires_confirmation": requires_confirmation,
     }

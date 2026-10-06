@@ -1,12 +1,58 @@
-# apps/ai-service/app/tools/projects_tools.py
 import os
 import re
-from typing import Optional, Literal
+from typing import Literal, Optional
 from langchain_core.tools import tool
+
 from app.clients.projects_client import projects_client
-from app.clients.user_client import users_client  
-UUID_REGEX = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
- 
+from app.clients.user_client import users_client
+
+UUID_REGEX = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I
+)
+
+
+@tool
+async def lookup_project_tool(identifier: str) -> str:
+    """Looks up an existing project by its name or UUID in DevFlow AI.
+
+    Args:
+        identifier: The project name or project UUID to search for.
+    """
+    clean_id = identifier.strip().strip('"').strip("'") if identifier else ""
+    if not clean_id:
+        return "Error: An identifier (project name or UUID) must be provided."
+
+    # 1. First attempt: Search via project lookup (name or query)
+    result = await projects_client.lookup_project(clean_id)
+
+    # 2. Second attempt: Fallback to get_project by ID if lookup failed and UUID is provided
+    if not result.get("success") or not result.get("data"):
+        if hasattr(projects_client, "get_project"):
+            fallback_res = await projects_client.get_project(clean_id)
+            if fallback_res.get("success") and fallback_res.get("data"):
+                result = fallback_res
+
+    if not result.get("success") or not result.get("data"):
+        return f"Project '{clean_id}' was not found in the database."
+
+    data = result.get("data", {})
+    owner_info = data.get("owner", {})
+    owner_name = (
+        owner_info.get("name")
+        if isinstance(owner_info, dict)
+        else data.get("ownerId", "None")
+    )
+
+    return (
+        f"Found Project **{data.get('name', 'N/A')}**:\n"
+        f"- **ID**: `{data.get('id', 'N/A')}`\n"
+        f"- **Description**: {data.get('description', 'No description provided')}\n"
+        f"- **Status**: `{data.get('status', 'N/A')}`\n"
+        f"- **Priority**: `{data.get('priority', 'N/A')}`\n"
+        f"- **Owner**: `{owner_name}`"
+    )
+
+
 @tool
 async def create_project_tool(
     name: str,
@@ -15,24 +61,31 @@ async def create_project_tool(
     priority: Literal["low", "medium", "high", "critical"] = "low",
     status: Literal["active", "planning", "on_hold", "completed", "archived"] = "active",
 ) -> str:
-    """Creates a new project in DevFlow AI."""
+    """Creates a new project in DevFlow AI.
+
+    Args:
+        name: Name of the project.
+        description: Project scope or summary.
+        owner_id: UUID of the project owner.
+        priority: Priority level.
+        status: Lifecycle status.
+    """
     clean_name = name.strip()
-    clean_desc = description.strip() 
+    clean_desc = description.strip()
+
+    if not clean_name:
+        return "Error: name is required to create a project."
     if not clean_desc:
         return "Error: description is required to create a project."
-    # Programmatic Guardrail: Lookup before creating
+
+    # Guardrail: Check duplicate name before creating
     existing = await projects_client.lookup_project(clean_name)
     if existing.get("success") and existing.get("data"):
-        project_data = existing["data"]
-        return (
-            f"Cannot create project: A project named '{clean_name}' "
-            f"already exists with ID."
-        )
+        return f"Cannot create project: A project named '{clean_name}' already exists."
 
-    # Proceed with creation if lookup did not find it
     payload = {
         "name": clean_name,
-        "description": description.strip(),
+        "description": clean_desc,
         "status": status.lower(),
         "priority": priority.lower(),
     }
@@ -41,39 +94,10 @@ async def create_project_tool(
 
     result = await projects_client.create_project(payload)
     if not result.get("success"):
-        return f"Failed to create project: {result.get('error')}"
+        return f"Failed to create project: {result.get('error', 'Unknown backend error')}"
 
     return f"Project **{clean_name}** created successfully!"
 
-@tool
-async def delete_project_tool(identifier: str) -> str:
-    """Deletes an existing project in DevFlow AI by its name or ID.
-
-    Args:
-        identifier: The project name or UUID to delete.
-    """
-    clean_identifier = identifier.strip().strip('"').strip("'")
-    if not clean_identifier:
-        return "Error: An identifier (project name or UUID) must be provided to delete a project."
-
-    # 1. Resolve project by name or UUID to obtain the actual database ID
-    target = await projects_client.lookup_project(clean_identifier)
-    if not target.get("success") or not target.get("data"):
-        return f"Error: Project '{clean_identifier}' was not found. Cannot delete non-existent project."
-
-    project_data = target["data"]
-    project_id = project_data.get("id")
-    project_name = project_data.get("name", clean_identifier)
-
-    if not project_id:
-        return f"Error: Found project record for '{project_name}', but could not extract a valid ID."
-
-    # 2. Call DELETE /projects/:id using the verified project_id
-    result = await projects_client.delete_project(project_id)
-    if not result.get("success"):
-        return f"Failed to delete project '{project_name}': {result.get('error', 'Unknown backend error')}"
-
-    return f"Project **{project_name}** (ID: `{project_id}`) has been successfully deleted."
 
 @tool
 async def update_project_tool(
@@ -94,9 +118,11 @@ async def update_project_tool(
         priority: New priority ('low', 'medium', 'high', 'critical').
         owner: New owner's name, email, or UUID.
     """
-    clean_identifier = identifier.strip()
+    clean_identifier = identifier.strip().strip('"').strip("'")
+    if not clean_identifier:
+        return "Error: Project identifier must be provided."
 
-    # 1. Verify the project to be updated actually exists
+    # 1. Verify project exists
     target_project = await projects_client.lookup_project(clean_identifier)
     if not target_project.get("success") or not target_project.get("data"):
         return f"Error: Project '{clean_identifier}' was not found. Cannot update non-existent project."
@@ -104,7 +130,7 @@ async def update_project_tool(
     existing_data = target_project["data"]
     target_id = existing_data.get("id", clean_identifier)
 
-    # 2. If renaming, check if the NEW name is already taken by a different project
+    # 2. Collision check if renaming
     if name and name.strip().lower() != existing_data.get("name", "").strip().lower():
         clean_new_name = name.strip()
         collision_check = await projects_client.lookup_project(clean_new_name)
@@ -113,7 +139,7 @@ async def update_project_tool(
             if collision_id != target_id:
                 return f"Error: Project with name '{clean_new_name}' already exists. Choose a different name."
 
-    # 3. Construct update payload with only provided fields
+    # 3. Build update payload
     payload = {}
     if name:
         payload["name"] = name.strip()
@@ -124,34 +150,24 @@ async def update_project_tool(
     if priority:
         payload["priority"] = priority.lower()
 
-    # 4. Resolve owner (Name/Email -> UUID)
+    # 4. Resolve owner (UUID direct or lookup via user_client)
     if owner:
         clean_owner = owner.strip()
-        print(f"\n==========================================")
-        print(f"[DEBUG] Looking up owner: '{clean_owner}'")
-
         if UUID_REGEX.match(clean_owner):
             payload["ownerId"] = clean_owner
         else:
             try:
-                # FIX: Use find_user instead of lookup_user so it queries by name/search
                 user_res = await users_client.find_user(clean_owner)
             except Exception as e:
-                print(f"[DEBUG EXCEPTION]: {str(e)}")
                 return f"Error contacting user service: {str(e)}"
 
-            print(f"[DEBUG RAW RESPONSE TYPE]: {type(user_res)}")
-            print(f"[DEBUG RAW RESPONSE VALUE]: {user_res}")
-            print(f"==========================================\n")
-
             if not user_res:
-                return f"System Error: users_client returned None or empty response for '{clean_owner}'."
+                return f"System Error: User service returned empty response for '{clean_owner}'."
 
-            # Case A: If user_res returned an error dictionary
             if isinstance(user_res, dict) and not user_res.get("success", True):
                 return f"Backend User Lookup Failed: {user_res.get('error')} (Status: {user_res.get('status_code')})"
 
-            # Case B: Extract ID whether it's wrapped in 'data' or top-level
+            # Extract resolved user UUID
             resolved_id = None
             if isinstance(user_res, dict):
                 data = user_res.get("data")
@@ -165,10 +181,12 @@ async def update_project_tool(
             if resolved_id:
                 payload["ownerId"] = resolved_id
             else:
-                return f"Could not find ID for user '{clean_owner}'. Raw response was: {user_res}"
-   
-   
-    # 5. Send update request using the verified project ID
+                return f"Could not find ID for user '{clean_owner}'."
+
+    if not payload:
+        return f"Error: No update fields provided for project '{clean_identifier}'."
+
+    # 5. Execute project update
     result = await projects_client.update_project(target_id, payload)
     if not result.get("success"):
         status_code = result.get("status_code")
@@ -181,56 +199,33 @@ async def update_project_tool(
     updated_name = data.get("name") or payload.get("name") or clean_identifier
     return f"Project **{updated_name}** updated successfully!"
 
+
 @tool
-async def lookup_project_tool(identifier: str) -> str:
-    """Looks up an existing project by its name.
+async def delete_project_tool(identifier: str) -> str:
+    """Deletes an existing project in DevFlow AI by its name or UUID.
 
     Args:
-        identifier: The project name to search for.
+        identifier: The project name or UUID to delete.
     """
-    clean_id = identifier.strip() if identifier else ""
-    if not clean_id:
-        return "Error: An identifier (project name) must be provided."
+    clean_identifier = identifier.strip().strip('"').strip("'")
+    if not clean_identifier:
+        return "Error: An identifier (project name or UUID) must be provided to delete a project."
 
-    result = await projects_client.lookup_project(clean_id)
+    # 1. Resolve project by name or UUID to get target database ID
+    target = await projects_client.lookup_project(clean_identifier)
+    if not target.get("success") or not target.get("data"):
+        return f"Error: Project '{clean_identifier}' was not found. Cannot delete non-existent project."
 
+    project_data = target["data"]
+    project_id = project_data.get("id")
+    project_name = project_data.get("name", clean_identifier)
+
+    if not project_id:
+        return f"Error: Found project record for '{project_name}', but could not extract a valid ID."
+
+    # 2. Call DELETE /projects/:id
+    result = await projects_client.delete_project(project_id)
     if not result.get("success"):
-        status_code = result.get("status_code")
-        if status_code == 404:
-            return f"Project '{clean_id}' was not found."
-        return f"Failed to look up project: {result.get('error', 'Unknown backend error')}"
+        return f"Failed to delete project '{project_name}': {result.get('error', 'Unknown backend error')}"
 
-    data = result.get("data", {})
-    project_id = data.get("id", "N/A")
-    name = data.get("name", "N/A")
-    description = data.get("description", "No description provided")
-    status = data.get("status", "N/A")
-    priority = data.get("priority", "N/A")
-
-    owner_info = data.get("owner", {})
-    owner_name = owner_info.get("name") if isinstance(owner_info, dict) else data.get("ownerId", "None")
-
- 
-    """Looks up an existing project by its name or ID.
-
-    Args:
-        identifier: The project name or project UUID to search for.
-    """
-    result = await projects_client.get_project(identifier.strip())
-    if not result.get("success"):
-        return f"Project '{identifier}' not found or error occurred: {result.get('error', 'Not found')}"
-
-    data = result.get("data", {})
-    if not data:
-        return f"No project found matching '{identifier}'."
-
-    return (
-        f"Found Project **{data.get('name', 'N/A')}**:\n"
-        f"- **ID**: `{data.get('id', 'N/A')}`\n"
-        f"- **Description**: {data.get('description', 'N/A')}\n"
-        f"- **Status**: `{data.get('status', 'N/A')}`\n"
-        f"- **Priority**: `{data.get('priority', 'N/A')}`\n"
-        f"- **Owner ID**: `{data.get('ownerId', 'N/A')}`"
-    )
-    
-   
+    return f"Project **{project_name}** (ID: `{project_id}`) has been successfully deleted."
