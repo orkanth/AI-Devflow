@@ -10,7 +10,8 @@ from langgraph.checkpoint.memory import MemorySaver
 from app.llm import get_llm
 from app.graph.agents.user_agent import user_agent_node
 from app.graph.agents.project_agent import project_agent_node
-from app.graph.agents.worker_nodes import task_node, rag_node, analytics_node
+from app.graph.agents.task_agent import  task_agent_node
+from app.graph.agents.worker_nodes import   rag_node, analytics_node
 
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], operator.add]
@@ -63,7 +64,7 @@ def build_graph():
     workflow = StateGraph(AgentState)
     workflow.add_node("supervisor", supervisor_node)
     workflow.add_node("UserAgent", user_agent_node)
-    workflow.add_node("TaskAgent", task_node)
+    workflow.add_node("TaskAgent", task_agent_node)
     workflow.add_node("ProjectAgent", project_agent_node)
     workflow.add_node("RAGAgent", rag_node)
     workflow.add_node("AnalyticsAgent", analytics_node)

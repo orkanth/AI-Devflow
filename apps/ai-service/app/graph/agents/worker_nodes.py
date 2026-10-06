@@ -2,20 +2,14 @@
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langgraph.prebuilt import create_react_agent
 from app.llm import get_llm
- 
-from app.tools.tasks_tools import list_project_tasks
+  
 from app.tools.ttd_tools import search_knowledge_base, fetch_project_analytics 
 
  
 
 llm = get_llm()
 
-# Task Agent
-task_agent = create_react_agent(
-    model=llm,
-    tools=[ list_project_tasks],
-    prompt="You are a Task Management specialist. Execute task and project CRUD operations."
-)
+ 
 
 # RAG Agent
 rag_agent = create_react_agent(
@@ -31,9 +25,7 @@ analytics_agent = create_react_agent(
     prompt="You are an Analytics specialist. Analyze metrics, task completion rates, and bottlenecks."
 )
 
-async def task_node(state):
-    result = await task_agent.ainvoke(state)
-    return {"messages": [result["messages"][-1]]}
+ 
 
 async def rag_node(state):
     result = await rag_agent.ainvoke(state)
