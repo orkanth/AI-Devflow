@@ -251,3 +251,251 @@ async def delete_task_tool(identifier: str) -> str:
         return f"Failed to delete task '{task_title}': {result.get('error', 'Unknown backend error')}"
 
     return f"Task **{task_title}** (ID: `{task_id}`) has been successfully deleted."
+
+@tool
+async def list_tasks_by_user_tool(user_identifier: str) -> str:
+  """Lists all tasks currently assigned to a specific user by name, email, or user UUID.
+
+  Args:
+      user_identifier: User name, email, or user UUID.
+  """
+  clean_user = user_identifier.strip().strip('"').strip("'")
+  if not clean_user:
+    return "Error: User identifier must be provided."
+
+  # 1. Resolve User ID
+  user_id = clean_user
+  if not UUID_REGEX.match(clean_user):
+    user_res = await users_client.find_user(clean_user)
+    if not user_res or not user_res.get("success", True):
+      return f"Could not find user '{clean_user}'."
+    data = user_res.get("data")
+    if isinstance(data, dict):
+      user_id = data.get("id")
+    elif isinstance(data, list) and len(data) > 0:
+      user_id = data[0].get("id")
+    elif user_res.get("id"):
+      user_id = user_res.get("id")
+
+  if not user_id:
+    return f"User '{clean_user}' not found."
+
+  # 2. Get all tasks and filter by assigneeId
+  res = await tasks_client.list_tasks()
+  if not res.get("success"):
+    return f"Failed to fetch tasks: {res.get('error')}"
+
+  all_tasks = res.get("data", [])
+  user_tasks = [t for t in all_tasks if t.get("assigneeId") == user_id]
+
+  if not user_tasks:
+    return f"No tasks are currently assigned to user '{clean_user}'."
+
+  lines = [f"Tasks assigned to **{clean_user}** ({len(user_tasks)} found):"]
+  for t in user_tasks:
+    lines.append(f"- ID: `{t.get('id')}` | Title: **{t.get('title')}**")
+
+  return "\n".join(lines)
+
+@tool 
+async def reassign_user_tasks_tool(
+    from_user: str,
+    to_user: str,
+    project_identifier: Optional[str] = None,
+) -> str:
+    """Reassigns all tasks from one user to another in DevFlow AI.
+
+    Args:
+        from_user: Name, email, or UUID of current assignee (e.g. 'Revathi').
+        to_user: Name, email, or UUID of target assignee (e.g. 'Ravi5').
+        project_identifier: Optional project name or UUID to restrict reassignment.
+    """
+    clean_from = from_user.strip().strip('"').strip("'")
+    clean_to = to_user.strip().strip('"').strip("'")
+
+    if not clean_from or not clean_to:
+        return "Error: Both source user and destination user must be provided."
+
+    # 1. Resolve source user ID
+    from_id = clean_from
+    if not UUID_REGEX.match(clean_from):
+        res_from = await users_client.find_user(clean_from)
+        if not res_from or not res_from.get("success", True):
+            return f"Error: Source user '{clean_from}' not found."
+        data_from = res_from.get("data")
+        if isinstance(data_from, dict):
+            from_id = data_from.get("id")
+        elif isinstance(data_from, list) and len(data_from) > 0:
+            from_id = data_from[0].get("id")
+        elif res_from.get("id"):
+            from_id = res_from.get("id")
+
+    # 2. Resolve destination user ID
+    to_id = clean_to
+    if not UUID_REGEX.match(clean_to):
+        res_to = await users_client.find_user(clean_to)
+        if not res_to or not res_to.get("success", True):
+            return f"Error: Target user '{clean_to}' not found."
+        data_to = res_to.get("data")
+        if isinstance(data_to, dict):
+            to_id = data_to.get("id")
+        elif isinstance(data_to, list) and len(data_to) > 0:
+            to_id = data_to[0].get("id")
+        elif res_to.get("id"):
+            to_id = res_to.get("id")
+
+    if not from_id or not to_id:
+        return f"Error: Could not resolve valid IDs for '{clean_from}' or '{clean_to}'."
+
+    # 3. Retrieve tasks
+    list_res = await tasks_client.list_tasks(project_id=project_identifier)
+    if not list_res.get("success"):
+        return f"Error fetching tasks from backend: {list_res.get('error')}"
+
+    tasks = list_res.get("data", [])
+    matching_tasks = [t for t in tasks if t.get("assigneeId") == from_id]
+
+    if not matching_tasks:
+        return f"No tasks are currently assigned to '{clean_from}'."
+
+    # 4. Patch each task with the new assignee ID
+    updated_titles = []
+    failed_titles = []
+
+    for task in matching_tasks:
+        tid = task.get("id")
+        title = task.get("title", tid)
+        print("\n========== REASSIGN TASK ==========")
+        print("Task ID:", tid)
+        print("Task title:", title)
+        print("FROM user ID:", from_id)
+        print("TO user ID:", to_id)
+
+        patch_res = await tasks_client.update_task(
+            tid,
+            {"assigneeId": to_id}
+        )
+
+        print("PATCH RESULT:", patch_res)
+        print("===================================\n")
+        if patch_res.get("success"):
+            updated_titles.append(title)
+        else:
+            failed_titles.append(title)
+
+    response_lines = [f"Successfully reassigned {len(updated_titles)} task(s) from **{clean_from}** to **{clean_to}**:"]
+    for t in updated_titles:
+        response_lines.append(f"- **{t}**")
+
+    if failed_titles:
+        response_lines.append(f"\nFailed to update {len(failed_titles)} task(s): {', '.join(failed_titles)}")
+
+    return "\n".join(response_lines)
+
+@tool
+async def reassign_tasks_by_priority_tool(
+    priority: Literal["low", "medium", "high", "critical"],
+    to_user: str,
+    project_identifier: Optional[str] = None,
+) -> str:
+    """Reassign all tasks matching a priority to a target user."""
+
+    clean_priority = priority.strip().lower()
+    clean_to = to_user.strip().strip('"').strip("'")
+
+    # Resolve target user
+    to_id = clean_to
+
+    if not UUID_REGEX.match(clean_to):
+        res_to = await users_client.find_user(clean_to)
+
+        if not res_to or not res_to.get("success", True):
+            return f"Error: Target user '{clean_to}' not found."
+
+        data_to = res_to.get("data")
+
+        if isinstance(data_to, dict):
+            to_id = data_to.get("id")
+        elif isinstance(data_to, list) and data_to:
+            to_id = data_to[0].get("id")
+        elif res_to.get("id"):
+            to_id = res_to.get("id")
+
+    if not to_id:
+        return f"Error: Could not resolve target user '{clean_to}'."
+
+    # Get tasks
+    list_res = await tasks_client.list_tasks(
+        project_id=project_identifier
+    )
+
+    if not list_res.get("success"):
+        return f"Error fetching tasks: {list_res.get('error')}"
+
+    tasks = list_res.get("data", [])
+
+    # Filter by priority
+    matching_tasks = [
+        task
+        for task in tasks
+        if str(task.get("priority", "")).lower() == clean_priority
+        and task.get("assigneeId") != to_id
+    ]
+
+    if not matching_tasks:
+        return (
+            f"No {clean_priority} priority tasks need to be "
+            f"reassigned to **{clean_to}**."
+        )
+
+    updated_titles = []
+    failed_titles = []
+
+    for task in matching_tasks:
+        task_id = task.get("id")
+        title = task.get("title", task_id)
+
+        patch_res = await tasks_client.update_task(
+            task_id,
+            {"assigneeId": to_id},
+        )
+
+        if not patch_res.get("success"):
+            failed_titles.append(
+                f"{title} ({patch_res.get('error', 'Unknown error')})"
+            )
+            continue
+
+        # Verify persistence
+        verify_res = await tasks_client.get_task(task_id)
+
+        actual_assignee = (
+            verify_res.get("data", {}).get("assigneeId")
+            if verify_res.get("success")
+            else None
+        )
+
+        if actual_assignee == to_id:
+            updated_titles.append(title)
+        else:
+            failed_titles.append(
+                f"{title} (database verification failed)"
+            )
+
+    response_lines = [
+        f"Successfully reassigned {len(updated_titles)} "
+        f"{clean_priority} priority task(s) to **{clean_to}**:"
+    ]
+
+    for title in updated_titles:
+        response_lines.append(f"- **{title}**")
+
+    if failed_titles:
+        response_lines.append(
+            f"\nFailed to update {len(failed_titles)} task(s):"
+        )
+
+        for title in failed_titles:
+            response_lines.append(f"- **{title}**")
+
+    return "\n".join(response_lines)

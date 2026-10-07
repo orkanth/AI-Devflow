@@ -61,29 +61,57 @@ export class TasksService {
 
     return this.taskRepo.save(task);
   }
-async update(id: string, dto: UpdateTaskDto): Promise<Task> {
-  const task = await this.findOne(id);
 
-  // REMOVE THIS BLOCK if UpdateTaskDto shouldn't have projectId:
-  // if (dto.projectId) {
-  //   await this.projects.findOne(dto.projectId);
-  // }
+  async update(id: string, dto: UpdateTaskDto): Promise<Task> {
+    await this.findOne(id);
 
-  if (dto.assigneeId) {
-    await this.users.findOne(dto.assigneeId);
+    if (dto.assigneeId !== undefined && dto.assigneeId !== null) {
+      await this.users.findOne(dto.assigneeId);
+    }
+
+    const updateData: Partial<Task> = {};
+
+    if (dto.projectId !== undefined) {
+      updateData.projectId = dto.projectId;
+    }
+
+    if (dto.title !== undefined) {
+      updateData.title = dto.title;
+    }
+
+    if (dto.description !== undefined) {
+      updateData.description = dto.description;
+    }
+
+    if (dto.status !== undefined) {
+      updateData.status = dto.status;
+    }
+
+    if (dto.priority !== undefined) {
+      updateData.priority = dto.priority;
+    }
+
+    if (dto.assigneeId !== undefined) {
+      updateData.assigneeId =
+        dto.assigneeId && dto.assigneeId.trim() !== ''
+          ? dto.assigneeId
+          : null;
+    }
+
+    console.log('UPDATE DATA:', updateData);
+
+    await this.taskRepo.update(id, updateData);
+
+    const updatedTask = await this.findOne(id);
+
+    console.log('UPDATED TASK:', {
+      id: updatedTask.id,
+      assigneeId: updatedTask.assigneeId,
+      assignee: updatedTask.assignee?.name,
+    });
+
+    return updatedTask;
   }
-
-  const assigneeId =
-    dto.assigneeId !== undefined
-      ? dto.assigneeId && dto.assigneeId.trim() !== ''
-        ? dto.assigneeId
-        : null
-      : task.assigneeId;
-
-  Object.assign(task, dto, { assigneeId });
-  return this.taskRepo.save(task);
-}
-
   async remove(id: string): Promise<{ id: string; deleted: boolean }> {
     const task = await this.findOne(id);
     await this.taskRepo.remove(task);

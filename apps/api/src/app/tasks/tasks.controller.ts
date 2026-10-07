@@ -32,6 +32,10 @@ export class TasksController {
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateTaskDto) {
+      console.log('\n========== PATCH TASK ==========');
+  console.log('Task ID:', id);
+  console.log('DTO:', dto);
+  console.log('================================\n');
     return this.tasks.update(id, dto);
   }
 

@@ -62,7 +62,7 @@ analytics node:   GET /api/ai/analytics (no guessing)
 
 ```bash
 export OPENAI_API_KEY=sk-...
-export OPENAI_MODEL=gpt-4o-mini   # optional
+export OPENAI_MODEL=gpt-5.6-luna   # optional
 npx nx serve ai-service           # must restart
 ```
 

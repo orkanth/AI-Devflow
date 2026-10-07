@@ -87,7 +87,7 @@ Set an OpenAI-compatible key, then **restart FastAPI** (`npx nx serve ai-service
 ```bash
 export OPENAI_API_KEY=sk-...
 # optional
-export OPENAI_MODEL=gpt-4o-mini
+export OPENAI_MODEL=gpt-5.6-luna
 # export OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 

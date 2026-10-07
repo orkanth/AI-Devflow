@@ -28,18 +28,37 @@ class ChatRequest(BaseModel):
 
 class ChatResultResponse(BaseModel):
     answer: str
-    route: str = "UserAgent"
-    source: str = "langgraph"
-    llm: bool = True
-    model: Optional[str] = "gpt-4o"
-    engine: str = "langgraph-supervisor"
-    trace: List[TraceEntry] = Field(default_factory=list)
-    contexts: List[ContextEntry] = Field(default_factory=list)
-    
-    # UI Action Metadata
-    status: Literal["completed", "requires_action", "error"] = "completed"
+    route: str
+    source: str
+    llm: bool
+    model: str
+    engine: str
+    trace: List[TraceEntry]
+    contexts: List[Any]
+    status: str
+    crud_payload: Optional[Dict[str, Any]] = None
+    missing_fields: Optional[List[str]] = None
+    requires_confirmation: bool = False
     # Added "duplicate" to allowed action types
-    action_type: Literal["missing_info", "confirmation", "duplicate", "none"] = "none"
+    action_type: Literal[
+    "create_task",
+    "update_task",
+    "delete_task",
+    "lookup_task",
+    "reassign_tasks",
+    "list_tasks",
+    "create_project",
+    "update_project",
+    "delete_project",
+    "create_user",
+    "update_user",
+    "delete_user",
+    "lookup_user",
+    "missing_info",
+    "confirmation",
+    "duplicate",
+    "none",
+    ] = "none"
     missing_fields: Optional[List[str]] = None
     requires_confirmation: bool = False
     

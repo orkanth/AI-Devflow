@@ -56,6 +56,12 @@ class BaseNestClient:
 
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
+                print("\n========== NEST HTTP REQUEST ==========")
+                print("METHOD:", method.upper())
+                print("URL:", url)
+                print("PARAMS:", params)
+                print("JSON BODY:", json)
+
                 res = await client.request(
                     method=method.upper(),
                     url=url,
@@ -63,6 +69,12 @@ class BaseNestClient:
                     params=params,
                     json=json,
                 )
+
+                data = await self._safe_parse_json(res)
+
+                print("STATUS:", res.status_code)
+                print("RESPONSE:", data)
+                print("=======================================\n")
                 data = await self._safe_parse_json(res)
 
                 if res.status_code >= 400:
