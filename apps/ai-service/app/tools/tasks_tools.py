@@ -391,6 +391,69 @@ async def reassign_user_tasks_tool(
         response_lines.append(f"\nFailed to update {len(failed_titles)} task(s): {', '.join(failed_titles)}")
 
     return "\n".join(response_lines)
+ 
+@tool
+async def list_tasks_tool(
+    priority: Optional[Literal["low", "medium", "high", "critical"]] = None,
+    user: Optional[str] = None,
+    project_identifier: Optional[str] = None,
+) -> str:
+    """Lists tasks. Can filter by priority, user, or project. 
+    If user is omitted, it retrieves tasks across all users.
+
+    Args:
+        priority: Optional priority filter ('low', 'medium', 'high', 'critical').
+        user: Optional name, email, or UUID. If not specified, returns tasks for all users.
+        project_identifier: Optional project name or UUID to filter tasks.
+    """
+    clean_user = user.strip().strip('"').strip("'") if user else None
+    user_id = None
+
+    # Resolve User ID ONLY if a specific user was provided
+    if clean_user and clean_user.lower() not in ("all", "everyone", "any", "none", ""):
+        user_id = clean_user
+        if not UUID_REGEX.match(clean_user):
+            user_res = await users_client.find_user(clean_user)
+            if not user_res or not user_res.get("success", True):
+                return f"Could not find user '{clean_user}'."
+            data = user_res.get("data")
+            if isinstance(data, dict):
+                user_id = data.get("id")
+            elif isinstance(data, list) and len(data) > 0:
+                user_id = data[0].get("id")
+            elif user_res.get("id"):
+                user_id = user_res.get("id")
+
+        if not user_id:
+            return f"User '{clean_user}' not found."
+
+    # Fetch tasks
+    res = await tasks_client.list_tasks(project_id=project_identifier)
+    if not res.get("success"):
+        return f"Failed to fetch tasks: {res.get('error')}"
+
+    all_tasks = res.get("data", [])
+
+    # Filter tasks: match user_id only if provided, match priority only if provided
+    filtered_tasks = [
+        t for t in all_tasks
+        if (user_id is None or t.get("assigneeId") == user_id)
+        and (priority is None or t.get("priority") == priority)
+    ]
+
+    scope_label = f"assigned to **{clean_user}**" if user_id else "across all users"
+    priority_label = f" with priority `{priority}`" if priority else ""
+
+    if not filtered_tasks:
+        return f"No tasks found {scope_label}{priority_label}."
+
+    lines = [f"Found {len(filtered_tasks)} task(s) {scope_label}{priority_label}:"]
+    for t in filtered_tasks:
+        lines.append(
+            f"- ID: `{t.get('id')}` | Title: **{t.get('title')}** | Priority: `{t.get('priority')}` | Status: `{t.get('status')}`"
+        )
+
+    return "\n".join(lines)
 
 @tool
 async def reassign_tasks_by_priority_tool(

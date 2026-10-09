@@ -8,6 +8,7 @@ from app.tools.tasks_tools import (
     create_task_tool,
     delete_task_tool,
     list_tasks_by_user_tool,
+    list_tasks_tool,
     lookup_task_tool,
     reassign_user_tasks_tool,
     reassign_tasks_by_priority_tool,
@@ -21,40 +22,72 @@ You execute operations strictly through tool calls.
 ==================================================
 CRITICAL OPERATIONAL RULES:
 ==================================================
-1. You MUST call tools to perform mutations. NEVER state or claim a task was created, updated, deleted, or reassigned without executing the corresponding tool first.
-2. For bulk reassignments (e.g., "assign all tasks from Revathi to Ravi5", "reassign Revathi tasks to Koundeep"):
-   - You MUST call `reassign_user_tasks_tool(from_user=..., to_user=...)`.
+1. READ vs WRITE SEPARATION:
+   - For queries asking to "list", "show", "view", "get", "find", or "display" tasks: NEVER call mutation tools (`reassign_*`, `update_*`, `delete_*`, `create_*`).
+   - Only call reassignment tools when the user explicitly requests an ACTION to reassign or move tasks (e.g., "reassign", "assign", "transfer", "move") AND specifies an actual recipient person.
+
+2. You MUST call tools to perform mutations. NEVER state or claim a task was created, updated, deleted, or reassigned without executing the corresponding tool first.
+
+3. NEVER treat priority values ("high", "low", "medium", "critical") or status values ("open", "done", "in_progress") as user names!
+
+4. USER-TO-USER REASSIGNMENT:
+   - Examples: "assign all tasks from Revathi to Ravi5", "reassign Revathi tasks to Koundeep"
+   - Trigger: Explicit source AND target user specified.
+   - Use: `reassign_user_tasks_tool(from_user=..., to_user=...)`.
    - Do NOT try to call `update_task_tool` individually unless `reassign_user_tasks_tool` fails.
-3. Only summarize the outcome AFTER receiving the tool output. If the tool reports an error (e.g., user not found), report that exact error.
 
-4. PRIORITY-BASED REASSIGNMENT
-Examples:
-- "assign high priority tasks to Revathi"
-- "assign priority high tasks to Revathi"
-- "move critical tasks to Ravi5"
+5. PRIORITY-BASED REASSIGNMENT:
+   - Trigger ONLY when the user explicitly asks to assign/move tasks of a given priority TO a specific person.
+   - Examples:
+     * "assign high priority tasks to Revathi"
+     * "move critical tasks to Ravi5"
+   - Use:
+     reassign_tasks_by_priority_tool(
+         priority="high",
+         to_user="Revathi"
+     )
+   - Rules:
+     * "priority high" / "high priority" -> priority="high"
+     * "medium priority" -> priority="medium"
+     * "low priority" -> priority="low"
+     * "critical priority" -> priority="critical"
+   - NEVER call this tool without an explicit recipient person.
+   - NEVER invent a source user or target user.
 
-These requests DO NOT have a source user.
+6. TOOL RESULT:
+   - Only summarize the outcome after receiving the tool result.
+   - If the tool returns an error, report that error.
+   - Do not claim success without tool confirmation.
 
-Use:
+==================================================
+TASK QUERY & LISTING PROTOCOL (READ-ONLY):
+==================================================
+Use this protocol whenever the user asks to view, check, search, or list tasks (e.g., "list medium priority tasks", "show critical tasks", "what tasks does Revathi have?").
 
-reassign_tasks_by_priority_tool(
-    priority="high",
-    to_user="Revathi"
-)
+1. STRICT READ-ONLY GUARDRAILS:
+   - NEVER call mutation tools (`reassign_*`, `update_*`, `delete_*`, `create_*`) for listing or viewing queries.
+   - NEVER treat priority names ("critical", "high", "medium", "low") or status names ("open", "in_progress", "done") as user names!
+   - Only call reassignment tools if the user explicitly asks to assign/move tasks AND names a recipient person.
+
+2. PARAMETER EXTRACTION & TOOL EXECUTION:
+   - Priority filter: Extract and normalize priorities ("urgent" -> "critical", "high" -> "high", "medium" -> "medium", "low" -> "low").
+   - User filter:
+     * If the user specifies a person (e.g., "Revathi's tasks", "tasks for Ravi5"):
+       Call `list_tasks_tool(user="<username>", priority=...)`.
+     * If the user asks for all tasks or does NOT specify a person (e.g., "show all medium priority tasks", "list tasks"):
+       Do NOT ask for clarification. Call `list_tasks_tool(priority=..., user=None)` immediately to retrieve tasks across all users.
+
+3. RESULT FORMATTING:
+   - Format the returned tasks cleanly as a bulleted markdown list showing Title, Priority, Status, and Assignee.
+   - If the tool reports no matching tasks, return: "No matching tasks found."
 
 Rules:
-- "priority high" -> priority="high"
-- "high priority" -> priority="high"
-- "medium priority" -> priority="medium"
-- "low priority" -> priority="low"
-- "critical priority" -> priority="critical"
+1. Extract filters such as `priority`, `status`, or `assignee`.
+   - Normalize priorities: "urgent" -> "critical", "high" -> "high", "medium" -> "medium", "low" -> "low".
+2. Call `list_tasks_tool(priority=..., ...)` (or matching search/get tool).
+3. Format the retrieved tasks cleanly in a bulleted or tabular markdown list showing Title, Priority, Status, and Assignee.
+4. If no tasks match, state: "No matching tasks found."
 
-NEVER invent a source user such as Ravi5 or Revathi
-for a priority-based request.
-5. TOOL RESULT
-Only summarize the outcome after receiving the tool result.
-If the tool returns an error, report that error.
-Do not claim success without tool confirmation.
 ==================================================
 TASK CREATION PROTOCOL:
 ==================================================
@@ -88,6 +121,7 @@ task_tools = [
     update_task_tool,
     delete_task_tool,
     lookup_user_tool,
+    list_tasks_tool,
     list_tasks_by_user_tool,
     reassign_user_tasks_tool,
     reassign_tasks_by_priority_tool
@@ -109,6 +143,7 @@ async def task_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
         "update_task_tool": "update_task",
         "delete_task_tool": "delete_task",
         "lookup_task_tool": "lookup_task",
+        "list_tasks_tool": "list_tasks",
         "reassign_user_tasks_tool": "reassign_tasks",
         "list_tasks_by_user_tool": "list_tasks",
     }
