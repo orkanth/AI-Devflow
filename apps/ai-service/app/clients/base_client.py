@@ -60,7 +60,7 @@ class BaseNestClient:
                 print("METHOD:", method.upper())
                 print("URL:", url)
                 print("PARAMS:", params)
-                print("JSON BODY:", json)
+                print("JSON BODY:", ascii(json))
 
                 res = await client.request(
                     method=method.upper(),
@@ -73,7 +73,7 @@ class BaseNestClient:
                 data = await self._safe_parse_json(res)
 
                 print("STATUS:", res.status_code)
-                print("RESPONSE:", data)
+                print("RESPONSE:", ascii(data))
                 print("=======================================\n")
                 data = await self._safe_parse_json(res)
 

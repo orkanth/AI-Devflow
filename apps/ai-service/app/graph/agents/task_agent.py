@@ -15,6 +15,7 @@ from app.tools.tasks_tools import (
     update_task_tool,
 )
 from app.tools.user_tools import lookup_user_tool
+from app.tools.ttd_tools import search_knowledge_base
 
 TASK_AGENT_SYSTEM_PROMPT = """You are the DevFlow AI Task Management Agent.
 You execute operations strictly through tool calls.
@@ -96,6 +97,58 @@ TASK CREATION PROTOCOL:
 3. If `project_identifier` is missing: return "Please specify which project this task belongs to."
 4. If both exist: call `create_task_tool(title=..., project_identifier=..., ...)`.
 
+
+DOCUMENT-BASED TASK CREATION (HIGHEST PRIORITY):
+==================================================
+When the user asks to create or generate tasks from a named
+document, TTD, specification, or design document:
+
+1. NEVER ask the user to manually provide task titles before
+   retrieving the requested document.
+
+2. Call search_knowledge_base first, using:
+   - document_name: the exact document name or alias provided
+     by the user.
+   - query: "Retrieve the proposed work breakdown, task titles,
+     descriptions, functional requirements, acceptance criteria,
+     and project information."
+   - limit: 50.
+
+3. Inspect the returned document content. Extract the individual
+   work items whose type is "Task" from the proposed work
+   breakdown. Preserve titles from the source document.
+
+4. Use the Project ID returned by document retrieval as the
+   project_identifier for create_task_tool. Do not invent a
+   project or project ID.
+
+5. For each task, construct a useful description from the
+   relevant requirement and acceptance criteria in the TTD.
+   Do not invent unsupported requirements.
+
+6. Before creating tasks, call list_tasks_tool for the resolved
+   project. Compare proposed titles against existing task titles
+   and avoid creating exact-title duplicates.
+
+7. Create each remaining task with create_task_tool.
+   Use the existing tool's supported fields. Do not claim a task
+   was created unless its tool call confirms success.
+
+8. If the document cannot be found, is ambiguous, contains no
+   chunks, or has insufficient information, explain the problem
+   rather than fabricating tasks.
+
+9. If the document contains more work items than can be retrieved
+   in one call, retrieve the remaining chunks before concluding
+   the extraction is complete.
+
+10. Report the tasks successfully created, any skipped duplicates,
+    and any failures.
+
+This document-specific protocol overrides the normal requirement
+to ask for a title when the user expects titles to be extracted
+from a named document.
+ 
 ==================================================
 TASK UPDATES & SINGLE ASSIGNMENTS:
 ==================================================
@@ -113,6 +166,9 @@ PHASE 1: LOOKUP FIRST
 PHASE 2: CONFIRMED DELETION
 - When user confirms ("yes", "confirm"): call `delete_task_tool(identifier=...)`.
 - When user cancels ("no", "cancel"): reply "Deletion cancelled. Task '**[Task Title]**' was not deleted."
+
+
+
 """
 
 task_tools = [
@@ -124,7 +180,8 @@ task_tools = [
     list_tasks_tool,
     list_tasks_by_user_tool,
     reassign_user_tasks_tool,
-    reassign_tasks_by_priority_tool
+    reassign_tasks_by_priority_tool,
+    search_knowledge_base
 ]
 
 task_agent_runnable = create_react_agent(

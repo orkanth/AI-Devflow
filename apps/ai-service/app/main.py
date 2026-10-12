@@ -1,6 +1,21 @@
 import os
-from typing import List
-from fastapi import FastAPI, APIRouter
+import math
+from pathlib import Path
+from io import BytesIO
+from typing import Any, Dict, List, Optional
+
+from fastapi import (
+    FastAPI,
+    APIRouter,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+)
+from docx import Document as DocxDocument
+from pypdf import PdfReader
+from langchain_openai import OpenAIEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from fastapi.middleware.cors import CORSMiddleware
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 
@@ -212,4 +227,280 @@ async def chat_endpoint(req: ChatRequest):
     result = await app_graph.ainvoke(inputs, config=config)
     return parse_chat_response(result, user_prompt)
 
+ 
+
+
+
+@v1_router.post("/knowledge/ingest")
+async def ingest_knowledge(
+    file: UploadFile = File(...),
+    document_id: str = Form(...),
+    project_id: str = Form(...),
+):
+    filename = file.filename or ""
+    extension = Path(filename).suffix.lower()
+    file_bytes = await file.read()
+
+    # 1. Validate the uploaded file
+    if not file_bytes:
+        raise HTTPException(
+            status_code=400,
+            detail="Uploaded file is empty",
+        )
+
+    if len(file_bytes) > 25 * 1024 * 1024:
+        raise HTTPException(
+            status_code=413,
+            detail="File size exceeds the 25 MB limit",
+        )
+
+    # 2. Extract document text
+    try:
+        if extension == ".pdf":
+            pdf = PdfReader(BytesIO(file_bytes))
+            text = "\n".join(
+                page.extract_text() or ""
+                for page in pdf.pages
+            )
+
+        elif extension == ".docx":
+            document = DocxDocument(BytesIO(file_bytes))
+            text = "\n".join(
+                paragraph.text
+                for paragraph in document.paragraphs
+            )
+
+        elif extension in {".txt", ".md"}:
+            text = file_bytes.decode(
+                "utf-8-sig",
+                errors="replace",
+            )
+
+        else:
+            raise HTTPException(
+                status_code=415,
+                detail="Supported formats: PDF, DOCX, TXT and MD",
+            )
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Document text extraction failed: {type(exc).__name__}",
+        ) from exc
+
+    if not text.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="No readable text was found in the document",
+        )
+
+    # 3. Split text into chunks
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=500, #1,000 characters
+        chunk_overlap=100, #150 characters
+    )
+
+    chunks = splitter.split_text(text)
+
+    if not chunks:
+        raise HTTPException(
+            status_code=422,
+            detail="No text chunks could be generated",
+        )
+
+    # 4. Generate 1536-dimensional embeddings
+    try:
+        embeddings_model = OpenAIEmbeddings(
+            model=os.getenv(
+                "OPENAI_EMBEDDING_MODEL",
+                "text-embedding-3-small",
+            ),
+            dimensions=1536,
+        )
+
+        vectors = await embeddings_model.aembed_documents(chunks)
+
+    except Exception as exc:
+        # Log the exception on the server without returning
+        # credentials or internal error details to the client.
+        print(f"Embedding generation failed: {type(exc).__name__}")
+
+        raise HTTPException(
+            status_code=502,
+            detail="Embedding generation failed. Check AI service configuration.",
+        ) from exc
+
+    if len(vectors) != len(chunks):
+        raise HTTPException(
+            status_code=502,
+            detail="Embedding count does not match chunk count",
+        )
+
+    if any(
+        len(vector) != 1536
+        or not all(map(__import__("math").isfinite, vector))
+        for vector in vectors
+    ):
+        raise HTTPException(
+            status_code=502,
+            detail="Embedding dimensions or values are invalid",
+        )
+
+    # 5. Return the chunks to NestJS for PostgreSQL storage
+    return {
+        "documentId": document_id,
+        "projectId": project_id,
+        "chunkCount": len(chunks),
+        "chunks": [
+            {
+                "content": content,
+                "chunkIndex": index,
+                "embedding": vector,
+            }
+            for index, (content, vector) in enumerate(
+                zip(chunks, vectors)
+            )
+        ],
+    }
+
+
+
+@v1_router.post("/knowledge/ingest")
+async def ingest_knowledge(
+    file: UploadFile = File(...),
+    document_id: str = Form(...),
+    project_id: str = Form(...),
+):
+    filename = file.filename or ""
+    extension = Path(filename).suffix.lower()
+    file_bytes = await file.read()
+
+    # 1. Validate the uploaded file
+    if not file_bytes:
+        raise HTTPException(
+            status_code=400,
+            detail="Uploaded file is empty",
+        )
+
+    if len(file_bytes) > 25 * 1024 * 1024:
+        raise HTTPException(
+            status_code=413,
+            detail="File size exceeds the 25 MB limit",
+        )
+
+    # 2. Extract document text
+    try:
+        if extension == ".pdf":
+            pdf = PdfReader(BytesIO(file_bytes))
+            text = "\n".join(
+                page.extract_text() or ""
+                for page in pdf.pages
+            )
+
+        elif extension == ".docx":
+            document = DocxDocument(BytesIO(file_bytes))
+            text = "\n".join(
+                paragraph.text
+                for paragraph in document.paragraphs
+            )
+
+        elif extension in {".txt", ".md"}:
+            text = file_bytes.decode(
+                "utf-8-sig",
+                errors="replace",
+            )
+
+        else:
+            raise HTTPException(
+                status_code=415,
+                detail="Supported formats: PDF, DOCX, TXT and MD",
+            )
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Document text extraction failed: {type(exc).__name__}",
+        ) from exc
+
+    if not text.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="No readable text was found in the document",
+        )
+
+    # 3. Split text into chunks
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=150,
+    )
+
+    chunks = splitter.split_text(text)
+
+    if not chunks:
+        raise HTTPException(
+            status_code=422,
+            detail="No text chunks could be generated",
+        )
+
+    # 4. Generate 1536-dimensional embeddings
+    try:
+        embeddings_model = OpenAIEmbeddings(
+            model=os.getenv(
+                "OPENAI_EMBEDDING_MODEL",
+                "text-embedding-3-small",
+            ),
+            dimensions=1536,
+        )
+
+        vectors = await embeddings_model.aembed_documents(chunks)
+
+    except Exception as exc:
+        # Log the exception on the server without returning
+        # credentials or internal error details to the client.
+        print(f"Embedding generation failed: {type(exc).__name__}")
+
+        raise HTTPException(
+            status_code=502,
+            detail="Embedding generation failed. Check AI service configuration.",
+        ) from exc
+
+    if len(vectors) != len(chunks):
+        raise HTTPException(
+            status_code=502,
+            detail="Embedding count does not match chunk count",
+        )
+
+    if any(
+        len(vector) != 1536
+        or not all(map(__import__("math").isfinite, vector))
+        for vector in vectors
+    ):
+        raise HTTPException(
+            status_code=502,
+            detail="Embedding dimensions or values are invalid",
+        )
+
+    # 5. Return the chunks to NestJS for PostgreSQL storage
+    return {
+        "documentId": document_id,
+        "projectId": project_id,
+        "chunkCount": len(chunks),
+        "chunks": [
+            {
+                "content": content,
+                "chunkIndex": index,
+                "embedding": vector,
+            }
+            for index, (content, vector) in enumerate(
+                zip(chunks, vectors)
+            )
+        ],
+    }
+
+
 app.include_router(v1_router)
+ 

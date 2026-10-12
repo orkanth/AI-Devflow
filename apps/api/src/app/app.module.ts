@@ -16,6 +16,7 @@ import * as path from 'path';
     // Loads the .env file globally across all modules
     ConfigModule.forRoot({
       isGlobal: true,
+      override: true,
       envFilePath: [
         path.resolve(process.cwd(), '.env'),
         path.resolve(__dirname, '../../../../.env'),
@@ -23,19 +24,60 @@ import * as path from 'path';
     }),
 
     // Asynchronously configures TypeORM using ConfigService
+    // TypeOrmModule.forRootAsync({
+    //   imports: [ConfigModule],
+    //   inject: [ConfigService],
+    //   useFactory: (configService: ConfigService) => ({
+    //     type: 'postgres',
+    //     host: configService.get<string>('DB_HOST', 'localhost'),
+    //     port: Number(configService.get<string>('DB_PORT', '5432')),
+    //     username: configService.get<string>('DB_USER', 'devflow'),
+    //     password: configService.get<string>('DB_PASSWORD', 'devflow'),
+    //     database: configService.get<string>('DB_NAME', 'devflow'),
+    //     autoLoadEntities: true, // Automatically loads entities from feature modules
+    //     synchronize: false,    // Set to false since your table already exists in PostgreSQL
+    //   }),
+    // }),
+
+   
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get<string>('DB_HOST', 'localhost'),
-        port: Number(configService.get<string>('DB_PORT', '5432')),
-        username: configService.get<string>('DB_USER', 'devflow'),
-        password: configService.get<string>('DB_PASSWORD', 'devflow'),
-        database: configService.get<string>('DB_NAME', 'devflow'),
-        autoLoadEntities: true, // Automatically loads entities from feature modules
-        synchronize: true,    // Set to false since your table already exists in PostgreSQL
-      }),
+      
+      useFactory: (configService: ConfigService) => {
+        const dbHost = configService.get<string>('DB_HOST', 'localhost');
+        const dbPort = Number(configService.get<string>('DB_PORT', '5432'));
+        const dbUser = configService.get<string>('DB_USER', 'devflow');
+        const dbPassword = configService.get<string>('DB_PASSWORD', 'devflow');
+        const dbName = configService.get<string>('DB_NAME', 'devflow');
+
+        // Temporary diagnostics — never print the password.
+        console.log('[Database diagnostic]', {
+          workingDirectory: process.cwd(),
+          processEnvPasswordMatchesDevflow:
+            process.env.DB_PASSWORD === 'devflow',
+          configServicePasswordMatchesDevflow:
+            dbPassword === 'devflow',
+          DB_PASSWORDLoaded:
+            configService.get<string>('DB_PASSWORD') !== undefined,
+          host: dbHost,
+          port: dbPort,
+          username: dbUser,
+          database: dbName,
+        });
+
+        return {
+          type: 'postgres' as const,
+          host: dbHost,
+          port: dbPort,
+          username: dbUser,
+          password: dbPassword,
+          database: dbName,
+          autoLoadEntities: true,
+          synchronize: false,
+        };
+      },
+
     }),
 
     StoreModule,
