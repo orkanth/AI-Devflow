@@ -17,17 +17,7 @@
   <mat-card-content>
     <form class="stack" (ngSubmit)="send()">
       <!-- Project Context Dropdown (Optional) -->
-      @if (projects().length) {
-        <mat-form-field appearance="outline">
-          <mat-label>Project Context (Optional)</mat-label>
-          <mat-select [(ngModel)]="projectId" name="projectId" [disabled]="busy()">
-            <mat-option [value]="''">None / No Project</mat-option>
-            @for (project of projects(); track project.id) {
-              <mat-option [value]="project.id">{{ project.name }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-      }
+      
 
       <mat-form-field appearance="outline">
         <mat-label>Prompt</mat-label>

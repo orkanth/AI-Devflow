@@ -63,13 +63,7 @@ export class AgentPromptPage implements OnInit {
   }
 
   ngOnInit() {
-    this.api
-      .projects()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((projects) => {
-        this.projects.set(projects);
-        // Do NOT auto-select projects[0] so selection remains optional
-      });
+   
 
     this.api
       .aiStatus()

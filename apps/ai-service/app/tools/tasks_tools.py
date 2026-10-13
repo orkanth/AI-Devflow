@@ -7,6 +7,9 @@ from app.clients.projects_client import projects_client
 from app.clients.tasks_client import tasks_client
 from app.clients.user_client import users_client
 
+
+from typing import List, Literal, Optional
+
 UUID_REGEX = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I
 )
@@ -562,3 +565,245 @@ async def reassign_tasks_by_priority_tool(
             response_lines.append(f"- **{title}**")
 
     return "\n".join(response_lines)
+
+@tool
+async def resolve_project_id(project_identifier: str) -> tuple[str | None, str | None]:
+    """Return (project UUID, error message) for a project name or UUID."""
+    clean_project = project_identifier.strip().strip('"').strip("'")
+
+    if not clean_project:
+        return None, "Project identifier is required."
+
+    if UUID_REGEX.match(clean_project):
+        return clean_project, None
+
+    result = await projects_client.lookup_project(clean_project)
+
+    if not result.get("success") or not result.get("data"):
+        return None, f"Project '{clean_project}' was not found."
+
+    project_id = result["data"].get("id")
+
+    if not project_id or not UUID_REGEX.match(project_id):
+        return None, f"Could not resolve a valid UUID for '{clean_project}'."
+
+    return project_id, None
+
+
+@tool 
+async def delete_tasks_tool(
+    scope: Literal["all", "unassigned", "project", "assignee"],
+    project_identifier: Optional[str] = None,
+    assignee_identifier: Optional[str] = None,
+    confirm: bool = False,
+    confirmed_task_ids: Optional[List[str]] = None,
+) -> str:
+    """Preview or safely delete multiple DevFlow AI tasks.
+
+    Args:
+        scope: 'all', 'unassigned', 'project', or 'assignee'.
+        project_identifier: Required for project scope.
+        assignee_identifier: Required for assignee scope; accepts
+            a user name, email, or UUID.
+        confirm: True only after explicit user confirmation.
+        confirmed_task_ids: Exact task IDs shown in the preview
+            and explicitly approved by the user.
+    """
+    project_id = None
+    project_name = None
+    assignee_id = None
+    assignee_name = None
+
+    # Resolve project scope.
+    if scope == "project":
+        if not project_identifier:
+            return "Error: Specify a project name or UUID." 
+            clean_project = project_identifier.strip().strip('"').strip("'")
+
+            if not clean_project:
+                return "Error: Specify a project name or UUID."
+
+            if UUID_REGEX.match(clean_project):
+                project_id = clean_project
+            else:
+                proj_res = await projects_client.lookup_project(clean_project)
+
+                if not proj_res.get("success") or not proj_res.get("data"):
+                    return f"Error: Project '{clean_project}' was not found."
+
+                project_id = proj_res["data"].get("id")
+
+                if not project_id or not UUID_REGEX.match(project_id):
+                    return f"Error: Could not resolve a valid UUID for '{clean_project}'."
+
+            project_name = clean_project
+
+
+        project_name = project_identifier.strip()
+
+    # Resolve assignee scope.
+    elif scope == "assignee":
+        if not assignee_identifier:
+            return "Error: Specify the assignee name, email, or UUID."
+
+        # Use your existing user-resolution helper here.
+        # It should return (user_id, error), like resolve_project_id.
+        assignee_id, error = await resolve_user_id(
+            assignee_identifier
+        )
+        if error:
+            return error
+        if not assignee_id:
+            return "Error: Could not resolve the assignee."
+
+        assignee_name = assignee_identifier.strip()
+
+    elif scope not in ("all", "unassigned"):
+        return "Error: Unsupported deletion scope."
+
+    # Fetch tasks.
+    result = await tasks_client.list_tasks(project_id=project_id)
+
+    if not result.get("success"):
+        return f"Error fetching tasks: {result.get('error')}"
+
+    tasks = result.get("data") or []
+
+    # Apply the requested scope.
+    if scope == "unassigned":
+        tasks = [
+            task for task in tasks
+            if not task.get("assigneeId")
+        ]
+
+    elif scope == "assignee":
+        tasks = [
+            task for task in tasks
+            if str(task.get("assigneeId") or "") == str(assignee_id)
+        ]
+
+    # Normalize task IDs and fail closed if IDs are missing
+    # or duplicated; deletion must be unambiguous.
+    task_ids = [str(task.get("id") or "") for task in tasks]
+
+    if any(not task_id for task_id in task_ids):
+        return "Error: A matching task has no ID. Nothing was deleted."
+
+    if len(task_ids) != len(set(task_ids)):
+        return "Error: Duplicate task IDs found. Nothing was deleted."
+
+    if not tasks:
+        return "No matching tasks found. Nothing was deleted."
+
+    current_ids = set(task_ids)
+
+    # Phase 1: Preview only.
+    if not confirm:
+        lines = [
+            f"Deletion preview: {len(tasks)} task(s) match scope '{scope}'."
+        ]
+
+        if project_name:
+            lines.append(f"Project: {project_name}")
+
+        if assignee_name:
+            lines.append(f"Assignee: {assignee_name} (ID: {assignee_id})")
+
+        # Include every ID so the exact preview can be confirmed.
+        for task in tasks:
+            lines.append(
+                f"- {task.get('title', 'Untitled')} "
+                f"(ID: {task.get('id')})"
+            )
+
+        lines.append(
+            "Nothing has been deleted. After the user explicitly "
+            "confirms this preview, call again with confirm=True "
+            "and confirmed_task_ids containing exactly these IDs."
+        )
+        return "\n".join(lines)
+
+    # Phase 2: Require the exact approved ID set.
+    if not confirmed_task_ids:
+        return (
+            "Deletion blocked: confirmed_task_ids is required. "
+            "Preview the tasks and obtain explicit confirmation first."
+        )
+
+    approved_ids = [str(task_id) for task_id in confirmed_task_ids]
+
+    if len(approved_ids) != len(set(approved_ids)):
+        return "Deletion blocked: duplicate confirmed IDs. Nothing was deleted."
+
+    if set(approved_ids) != current_ids:
+        return (
+            "Deletion blocked: the current matching task set differs "
+            "from the confirmed preview. Nothing was deleted. "
+            "Generate a new preview and request confirmation again."
+        )
+
+    # Delete only the exact approved tasks.
+    task_by_id = {str(task["id"]): task for task in tasks}
+    deleted = []
+    failed = []
+
+    for task_id in approved_ids:
+        task = task_by_id[task_id]
+        title = task.get("title", task_id)
+
+        try:
+            response = await tasks_client.delete_task(task_id)
+
+            if response.get("success"):
+                deleted.append(str(title))
+            else:
+                failed.append(str(title))
+        except Exception:
+            failed.append(str(title))
+
+    return (
+        f"Deletion result for scope '{scope}': "
+        f"{len(deleted)} deleted, {len(failed)} failed.\n"
+        + (
+            "Failed tasks: " + ", ".join(failed)
+            if failed else "All approved matching tasks were deleted."
+        )
+    )
+ 
+
+async def resolve_user_id(identifier: str):
+    """Resolve a user name, email, or UUID to a user ID."""
+    clean_identifier = identifier.strip().strip('"').strip("'")
+
+    if not clean_identifier:
+        return None, "Error: Specify a user name, email, or UUID."
+
+    if UUID_REGEX.match(clean_identifier):
+        return clean_identifier, None
+
+    try:
+        user_res = await users_client.find_user(clean_identifier)
+    except Exception as exc:
+        return None, f"Error looking up user: {type(exc).__name__}"
+
+    if not user_res or not user_res.get("success", True):
+        return None, f"Error: User '{clean_identifier}' was not found."
+
+    data = user_res.get("data")
+
+    if isinstance(data, dict):
+        user_id = data.get("id")
+    elif isinstance(data, list) and len(data) == 1:
+        user_id = data[0].get("id")
+    elif isinstance(data, list) and len(data) > 1:
+        return None, (
+            f"Error: Multiple users matched '{clean_identifier}'. "
+            "Use an email address or UUID."
+        )
+    else:
+        user_id = user_res.get("id")
+
+    if not user_id:
+        return None, f"Error: Could not resolve user '{clean_identifier}'."
+
+    return str(user_id), None

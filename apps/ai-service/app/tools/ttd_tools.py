@@ -111,7 +111,7 @@ def _resolve_document(conn, document_name: str):
 @tool
 async def search_knowledge_base(
     query: str = "",
-    limit: int = 8,
+    limit: int = 50,
     document_name: Optional[str] = None,
 ) -> str:
     """

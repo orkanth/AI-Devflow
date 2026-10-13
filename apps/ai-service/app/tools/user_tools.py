@@ -109,3 +109,25 @@ async def delete_user_tool(
     name = data.get("name") or primary_target
 
     return f"User <b>{name}</b> has been deleted successfully."
+
+
+async def resolve_user_id(identifier: str):
+    """Resolve a user's name or email to a user ID."""
+    clean_identifier = identifier.strip().strip('"').strip("'")
+
+    if not clean_identifier:
+        return None, "Error: Specify a user name or email."
+
+    try:
+        user = await users_client.find_user(clean_identifier)
+    except Exception as exc:
+        return None, f"Error looking up user: {type(exc).__name__}"
+
+    if not user:
+        return None, f"Error: User '{clean_identifier}' was not found."
+
+    user_id = user.get("id")
+    if not user_id:
+        return None, f"Error: User '{clean_identifier}' has no ID."
+
+    return str(user_id), None

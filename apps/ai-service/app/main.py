@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 
 from app.schemas import ChatRequest, ChatResultResponse, TraceEntry, ToolCallRecord
-from app.graph.supervisor import app_graph
+from app.graph.supervisor import app_graph 
 
 app = FastAPI(title="DevFlow AI Service")
 
@@ -82,6 +82,8 @@ def parse_chat_response(
 
     action_type = result.get("action_type") or "none"
 
+    if action_type == "search_knowledge_base":
+        action_type = "none"
     crud_payload: Optional[Dict[str, Any]] = result.get(
         "crud_payload"
     )
@@ -226,11 +228,8 @@ async def chat_endpoint(req: ChatRequest):
     config = {"configurable": {"thread_id": req.thread_id or "default"}}
     result = await app_graph.ainvoke(inputs, config=config)
     return parse_chat_response(result, user_prompt)
-
  
 
-
-
 @v1_router.post("/knowledge/ingest")
 async def ingest_knowledge(
     file: UploadFile = File(...),
@@ -265,10 +264,23 @@ async def ingest_knowledge(
 
         elif extension == ".docx":
             document = DocxDocument(BytesIO(file_bytes))
-            text = "\n".join(
-                paragraph.text
-                for paragraph in document.paragraphs
-            )
+
+            parts = []
+
+            # Read paragraphs, including paragraphs inside tables
+            # and many text boxes, in document XML order.
+            for paragraph in document.element.body.iter():
+                if paragraph.tag.endswith("}p"):
+                    paragraph_text = "".join(
+                        node.text or ""
+                        for node in paragraph.iter()
+                        if node.tag.endswith("}t")
+                    )
+
+                    if paragraph_text.strip():
+                        parts.append(paragraph_text.strip())
+
+            text = "\n".join(parts)
 
         elif extension in {".txt", ".md"}:
             text = file_bytes.decode(
@@ -290,141 +302,25 @@ async def ingest_knowledge(
             detail=f"Document text extraction failed: {type(exc).__name__}",
         ) from exc
 
-    if not text.strip():
-        raise HTTPException(
-            status_code=422,
-            detail="No readable text was found in the document",
-        )
+    
+        print("Extracted document characters:", len(text))
 
-    # 3. Split text into chunks
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500, #1,000 characters
-        chunk_overlap=100, #150 characters
-    )
+        start = text.find("Proposed Work Breakdown")
 
-    chunks = splitter.split_text(text)
-
-    if not chunks:
-        raise HTTPException(
-            status_code=422,
-            detail="No text chunks could be generated",
-        )
-
-    # 4. Generate 1536-dimensional embeddings
-    try:
-        embeddings_model = OpenAIEmbeddings(
-            model=os.getenv(
-                "OPENAI_EMBEDDING_MODEL",
-                "text-embedding-3-small",
-            ),
-            dimensions=1536,
-        )
-
-        vectors = await embeddings_model.aembed_documents(chunks)
-
-    except Exception as exc:
-        # Log the exception on the server without returning
-        # credentials or internal error details to the client.
-        print(f"Embedding generation failed: {type(exc).__name__}")
-
-        raise HTTPException(
-            status_code=502,
-            detail="Embedding generation failed. Check AI service configuration.",
-        ) from exc
-
-    if len(vectors) != len(chunks):
-        raise HTTPException(
-            status_code=502,
-            detail="Embedding count does not match chunk count",
-        )
-
-    if any(
-        len(vector) != 1536
-        or not all(map(__import__("math").isfinite, vector))
-        for vector in vectors
-    ):
-        raise HTTPException(
-            status_code=502,
-            detail="Embedding dimensions or values are invalid",
-        )
-
-    # 5. Return the chunks to NestJS for PostgreSQL storage
-    return {
-        "documentId": document_id,
-        "projectId": project_id,
-        "chunkCount": len(chunks),
-        "chunks": [
-            {
-                "content": content,
-                "chunkIndex": index,
-                "embedding": vector,
-            }
-            for index, (content, vector) in enumerate(
-                zip(chunks, vectors)
-            )
-        ],
-    }
-
-
-
-@v1_router.post("/knowledge/ingest")
-async def ingest_knowledge(
-    file: UploadFile = File(...),
-    document_id: str = Form(...),
-    project_id: str = Form(...),
-):
-    filename = file.filename or ""
-    extension = Path(filename).suffix.lower()
-    file_bytes = await file.read()
-
-    # 1. Validate the uploaded file
-    if not file_bytes:
-        raise HTTPException(
-            status_code=400,
-            detail="Uploaded file is empty",
-        )
-
-    if len(file_bytes) > 25 * 1024 * 1024:
-        raise HTTPException(
-            status_code=413,
-            detail="File size exceeds the 25 MB limit",
-        )
-
-    # 2. Extract document text
-    try:
-        if extension == ".pdf":
-            pdf = PdfReader(BytesIO(file_bytes))
-            text = "\n".join(
-                page.extract_text() or ""
-                for page in pdf.pages
-            )
-
-        elif extension == ".docx":
-            document = DocxDocument(BytesIO(file_bytes))
-            text = "\n".join(
-                paragraph.text
-                for paragraph in document.paragraphs
-            )
-
-        elif extension in {".txt", ".md"}:
-            text = file_bytes.decode(
-                "utf-8-sig",
-                errors="replace",
-            )
-
+        if start >= 0:
+            print("=== WORK BREAKDOWN CONTENT ===")
+            print(repr(text[start:start + 2000]))
         else:
-            raise HTTPException(
-                status_code=415,
-                detail="Supported formats: PDF, DOCX, TXT and MD",
-            )
+            print("Proposed Work Breakdown heading not found")
 
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Document text extraction failed: {type(exc).__name__}",
-        ) from exc
+        print(
+            "Has database model task:",
+            "Define User database model" in text,
+        )
+        print(
+            "Has POST endpoint task:",
+            "Implement POST /api/users" in text,
+        )
 
     if not text.strip():
         raise HTTPException(

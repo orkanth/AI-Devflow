@@ -7,12 +7,14 @@ from app.llm import get_llm
 from app.tools.tasks_tools import (
     create_task_tool,
     delete_task_tool,
+    delete_tasks_tool,
     list_tasks_by_user_tool,
     list_tasks_tool,
     lookup_task_tool,
     reassign_user_tasks_tool,
     reassign_tasks_by_priority_tool,
-    update_task_tool,
+    update_task_tool, 
+    delete_tasks_tool
 )
 from app.tools.user_tools import lookup_user_tool
 from app.tools.ttd_tools import search_knowledge_base
@@ -156,17 +158,91 @@ TASK UPDATES & SINGLE ASSIGNMENTS:
 - Normalizations: "done" / "completed" -> "done", "in progress" -> "in_progress", "urgent" -> "critical".
 
 ==================================================
-TASK DELETION PROTOCOL (STRICT 2-PHASE):
+TASK DELETION PROTOCOL (STRICT 2-PHASE)
 ==================================================
-PHASE 1: LOOKUP FIRST
-- Call `lookup_task_tool(identifier=...)`.
-- If found, do NOT delete yet. Ask:
-  "Are you sure you want to permanently delete task '**[Task Title]**' (ID: `[UUID]`)? Please reply 'yes' or 'confirm' to proceed."
 
-PHASE 2: CONFIRMED DELETION
-- When user confirms ("yes", "confirm"): call `delete_task_tool(identifier=...)`.
-- When user cancels ("no", "cancel"): reply "Deletion cancelled. Task '**[Task Title]**' was not deleted."
+GLOBAL RULE:
+- User confirmation is MANDATORY before every deletion.
+- Never delete tasks during the initial request.
+- Never claim deletion succeeded without tool confirmation.
 
+PHASE 1: PREVIEW AND REQUEST CONFIRMATION
+
+A. SINGLE TASK DELETION
+
+1. For a request to delete one specific task:
+   - Call lookup_task_tool(identifier=...).
+   - If the task is found, do NOT delete it.
+   - Ask:
+
+   "Are you sure you want to permanently delete task
+   '**[Task Title]**' (ID: `[UUID]`)?
+   Please reply 'yes' or 'confirm' to proceed."
+
+2. If the task is not found, report that it was not found.
+   Do not call delete_task_tool.
+
+B. BULK TASK DELETION
+
+1. For "delete all tasks":
+   Call delete_tasks_tool(scope="all", confirm=False).
+
+2. For "delete unassigned tasks":
+   Call delete_tasks_tool(scope="unassigned", confirm=False).
+
+3. For "delete Project2 tasks":
+   Call delete_tasks_tool(
+       scope="project",
+       project_identifier="Project2",
+       confirm=False
+   ).
+
+4. Show the preview returned by the tool.
+   State the exact deletion scope and number of matching tasks.
+
+5. Ask the user to explicitly confirm that exact operation.
+   No deletion is permitted during Phase 1.
+
+PHASE 2: CONFIRMATION AND EXECUTION
+
+1. Accept "yes" or "confirm" only when the latest user message
+   explicitly confirms the pending deletion.
+
+2. For a single task:
+   - Call delete_task_tool(identifier=...).
+
+3. For a bulk deletion:
+   - Call delete_tasks_tool with the exact pending scope,
+     project identifier if applicable, and confirm=True.
+
+4. Never change the scope, project, or task selection during
+   confirmation.
+
+5. If the user says "no", "cancel", or "stop":
+   - Do not call a deletion tool.
+   - Respond that the deletion was cancelled.
+   - Clear the pending confirmation.
+
+6. If the user changes the requested scope:
+   - Cancel the old pending operation.
+   - Generate a fresh preview.
+   - Request confirmation again.
+
+7. If there is no pending deletion, a standalone "yes" or
+   "confirm" must NEVER trigger a deletion.
+
+8. If the preview fails or the matching tasks cannot be retrieved,
+   do not delete anything.
+
+9. After execution, report only the actual backend result,
+   including successful deletions and failures.
+
+SECURITY:
+- The language model prompt alone is not a security boundary.
+- The application must validate the pending confirmation and
+  deletion scope before permitting destructive operations.
+- A confirmation for one operation must never authorize another.
+==================================================
 
 
 """
@@ -181,7 +257,8 @@ task_tools = [
     list_tasks_by_user_tool,
     reassign_user_tasks_tool,
     reassign_tasks_by_priority_tool,
-    search_knowledge_base
+    search_knowledge_base,
+    delete_tasks_tool
 ]
 
 task_agent_runnable = create_react_agent(
@@ -189,6 +266,7 @@ task_agent_runnable = create_react_agent(
     tools=task_tools,
     prompt=TASK_AGENT_SYSTEM_PROMPT,
 )
+
 
 async def task_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """Execute TaskAgent and preserve the complete ReAct tool trace."""
@@ -203,77 +281,95 @@ async def task_agent_node(state: Dict[str, Any]) -> Dict[str, Any]:
         "list_tasks_tool": "list_tasks",
         "reassign_user_tasks_tool": "reassign_tasks",
         "list_tasks_by_user_tool": "list_tasks",
+        "search_knowledge_base": "search_knowledge_base",
     }
 
-    # Run the ReAct agent
     result = await task_agent_runnable.ainvoke(
         {"messages": raw_messages}
     )
 
     result_messages = list(result.get("messages", []))
-
-    # IMPORTANT:
-    # create_react_agent returns the complete message history.
-    # Only append the newly generated messages to graph state.
     new_messages = result_messages[len(raw_messages):]
 
-    crud_payload = None
-    action_type = "none"
-    tool_result = None
+    crud_payloads = []
+    tool_trace = []
+    tool_call_names = {}
 
-    # ---------------------------------------------------------
-    # Inspect ALL newly generated messages
-    # ---------------------------------------------------------
+    # Collect EVERY tool call, not just the first one.
     for msg in new_messages:
+        for tc in getattr(msg, "tool_calls", None) or []:
+            name = tc.get("name")
+            args = tc.get("args", {})
+            call_id = tc.get("id")
 
-        # AIMessage containing tool calls
-        tool_calls = getattr(msg, "tool_calls", None)
+            tool_call_names[call_id] = name
 
-        if tool_calls:
-            for tc in tool_calls:
-                name = tc.get("name")
+            tool_trace.append({
+                "type": "tool_call",
+                "tool": name,
+                "tool_call_id": call_id,
+                "args": args,
+            })
 
-                if name in tool_action_map:
-                    action_type = tool_action_map[name]
-                    crud_payload = tc.get("args", {})
-                    break
+            if name in tool_action_map:
+                crud_payloads.append({
+                    "action_type": tool_action_map[name],
+                    "tool": name,
+                    "args": args,
+                    "tool_call_id": call_id,
+                })
 
-        # ToolMessage containing actual tool result
+    # Preserve EVERY tool result and associate it with its call.
+    for msg in new_messages:
         if getattr(msg, "type", None) == "tool":
-            tool_result = getattr(msg, "content", None)
+            call_id = getattr(msg, "tool_call_id", None)
 
-    # ---------------------------------------------------------
-    # Last AI response
-    # ---------------------------------------------------------
-    last_message = None
+            tool_trace.append({
+                "type": "tool_result",
+                "tool": tool_call_names.get(call_id, "unknown"),
+                "tool_call_id": call_id,
+                "result": msg.content,
+            })
 
-    for msg in reversed(new_messages):
-        if isinstance(msg, AIMessage):
-            last_message = msg
-            break
+    # Last AI response.
+    last_message = next(
+        (
+            msg for msg in reversed(new_messages)
+            if isinstance(msg, AIMessage)
+        ),
+        None,
+    )
 
-    # ---------------------------------------------------------
-    # Delete confirmation detection
-    # ---------------------------------------------------------
     requires_confirmation = False
 
     if last_message and last_message.content:
         content_lower = str(last_message.content).lower()
-
-        if (
+        requires_confirmation = (
             "are you sure you want to permanently delete task"
             in content_lower
-        ):
-            requires_confirmation = True
+        )
+
+    # Backward-compatible fields for existing consumers.
+    first_action = crud_payloads[0] if crud_payloads else None
 
     return {
-        # IMPORTANT:
-        # Preserve tool calls + tool results + final AI message
         "messages": new_messages,
-
         "next_node": "TaskAgent",
-        "action_type": action_type,
-        "crud_payload": crud_payload,
-        "tool_result": tool_result,
+        "action_type": (
+            first_action["action_type"] if first_action else "none"
+        ),
+        "crud_payload": (
+            first_action["args"] if first_action else None
+        ),
+        "crud_payloads": crud_payloads,
+        "tool_trace": tool_trace,
+        "tool_result": next(
+            (
+                entry["result"]
+                for entry in reversed(tool_trace)
+                if entry["type"] == "tool_result"
+            ),
+            None,
+        ),
         "requires_confirmation": requires_confirmation,
     }
