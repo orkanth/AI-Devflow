@@ -98,15 +98,7 @@ Or copy `.env.example` to `.env` at the repo root (never commit the key). With a
 - Task agent uses LangChain **`bind_tools`** against NestJS (regex intents if the call fails)
 
 Health: `GET http://localhost:8000/health` → `llm.enabled` and `langgraph`. The AI console shows GPT vs fallback.
-
-## Why this split (the 30-second interview answer)
-
-- **Angular** renders the product and talks HTTP. It never owns business rules.
-- **NestJS** is the **system of record**. Authorization, validation, and writes live here.
-- **FastAPI + LangGraph** is the **reasoning plane**. Agents call tools; they do not store tasks themselves.
-- **PostgreSQL** holds relational data. **pgvector** stores embeddings next to that data so RAG is not a second product database.
-- **Nx** keeps TypeScript and Python apps in one graph: `nx test api`, `nx test ai-service`, `nx graph`.
-  
+ 
 ## Node note
 
 Angular 22 wants Node `>= 22.22`. If `nx serve web` fails on an older 22.x, upgrade Node or use the NestJS/FastAPI APIs directly (`http://localhost:3333/api`, `http://localhost:8000/docs`).
