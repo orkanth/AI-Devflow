@@ -106,11 +106,7 @@ Health: `GET http://localhost:8000/health` → `llm.enabled` and `langgraph`. Th
 - **FastAPI + LangGraph** is the **reasoning plane**. Agents call tools; they do not store tasks themselves.
 - **PostgreSQL** holds relational data. **pgvector** stores embeddings next to that data so RAG is not a second product database.
 - **Nx** keeps TypeScript and Python apps in one graph: `nx test api`, `nx test ai-service`, `nx graph`.
-
-## Learn the stack
-
-Read [`docs/INTERVIEW_GUIDE.md`](docs/INTERVIEW_GUIDE.md) and [`docs/LANGCHAIN_LANGGRAPH.md`](docs/LANGCHAIN_LANGGRAPH.md) (LangChain vs LangGraph vs RAG, mapped to this repo’s files).
-
+  
 ## Node note
 
 Angular 22 wants Node `>= 22.22`. If `nx serve web` fails on an older 22.x, upgrade Node or use the NestJS/FastAPI APIs directly (`http://localhost:3333/api`, `http://localhost:8000/docs`).
